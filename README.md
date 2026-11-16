@@ -15,6 +15,7 @@ Capture → pick and refine → `full-stop` or `full-send` → reconcile the bac
 | [full-stop](skills/full-stop/SKILL.md) | Follow the same workflow, leaving a ready PR unmerged. |
 | [review-loop](skills/review-loop/SKILL.md) | Review with Sol through a bounded findings loop. |
 | [review-group](skills/review-group/SKILL.md) | Request feedback from three providers' models. |
+| [use-ui-sdk](skills/use-ui-sdk/SKILL.md) | Use Vercel's UI SDK and its version-matched guidance when implementing web UI. |
 
 Included helpers:
 

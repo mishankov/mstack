@@ -102,7 +102,8 @@ management and CLI upgrades.
 
 When adding a skill, add its summary and required skill dependencies to
 `catalog.json`. Use relative Markdown links for local resources and
-cross-skill references so CI can check that they ship with the skill.
+cross-skill references. Run `go test -count=1 ./...` to validate the catalog
+against the current checkout and Git index.
 
 This repository exposes its own catalog through the relative
 `.agents/skills` symlink. Edit the files in `skills/` directly when working

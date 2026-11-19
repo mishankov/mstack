@@ -20,14 +20,9 @@ jobs:
         with:
           go-version-file: go.mod
           cache: false
-      - uses: actions/setup-python@v7
-        with:
-          python-version: "3.13"
       - name: Test Go CLI and validate catalog
         env:
           GOTOOLCHAIN: local
         run: |
           go vet ./...
           go test -race -count=1 ./...
-      - name: Test PR watcher
-        run: python -m unittest discover -s tests

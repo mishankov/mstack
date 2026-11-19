@@ -55,6 +55,7 @@ func TestProjectSkillLifecycle(t *testing.T) {
 	}
 	command("", "update", "--check")
 	command("", "update")
+	command("not managed by mstack", "remove", "full-stop")
 	assertMissing(t, p.agents)
 
 	collision := filepath.Join(p.skills, "babysit-pr", "SKILL.md")
@@ -179,7 +180,8 @@ func TestRollbackWhenNewCollisionAppears(t *testing.T) {
 	for _, name := range []string{"first", "second"} {
 		writeFile(t, filepath.Join(c.dir, name, "SKILL.md"), []byte(name))
 	}
-	plan, err := p.plan(c, []string{"first", "second"}, lock)
+	ctx := context.Background()
+	plan, err := p.plan(ctx, c, []string{"first", "second"}, lock)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -192,7 +194,7 @@ func TestRollbackWhenNewCollisionAppears(t *testing.T) {
 		}); err == nil {
 			t.Fatal("concurrent write was accepted")
 		}
-		return p.apply(c, plan, lock)
+		return p.apply(ctx, c, plan, lock)
 	})
 	if err == nil || !strings.Contains(err.Error(), "unmanaged skill already exists") {
 		t.Fatalf("transaction did not report the new collision: %v", err)
@@ -203,6 +205,143 @@ func TestRollbackWhenNewCollisionAppears(t *testing.T) {
 	if got := string(readFile(t, collision)); got != "local" {
 		t.Fatalf("overwrote the conflicting skill: %q", got)
 	}
+}
+
+func TestUpdateAfterCRLFCheckout(t *testing.T) {
+	ctx := context.Background()
+	source := t.TempDir()
+	initRepo(t, source)
+	writeFile(t, filepath.Join(source, "catalog.json"), []byte(`{"demo":{"summary":"Demo"}}`))
+	writeFile(t, filepath.Join(source, "skills", "demo", "SKILL.md"), []byte("Original text.\n"))
+	writeFile(t, filepath.Join(source, "skills", "demo", "data.bin"), []byte("byte-exact\n"))
+	commitRepo(t, source)
+
+	dest := t.TempDir()
+	initRepo(t, dest)
+	writeFile(t, filepath.Join(dest, ".gitattributes"), []byte("*.bin -text\n"))
+	if err := run(ctx, dest, source, []string{"install", "demo"}, &bytes.Buffer{}); err != nil {
+		t.Fatal(err)
+	}
+	commitRepo(t, dest)
+	clone := filepath.Join(t.TempDir(), "clone")
+	if _, err := git(ctx, "", "clone", "--quiet", "--config", "core.autocrlf=true", dest, clone); err != nil {
+		t.Fatal(err)
+	}
+	status, err := git(ctx, clone, "status", "--porcelain")
+	if err != nil || len(status) != 0 {
+		t.Fatalf("expected a clean checkout, got %q, %v", status, err)
+	}
+	dir := filepath.Join(openProject(clone).skills, "demo")
+	doc := filepath.Join(dir, "SKILL.md")
+	if got := readFile(t, doc); !bytes.Equal(got, []byte("Original text.\r\n")) {
+		t.Fatalf("expected Git to check out CRLF, got %q", got)
+	}
+	writeFile(t, filepath.Join(source, "skills", "demo", "SKILL.md"), []byte("Upstream change.\n"))
+	commitRepo(t, source)
+
+	var out bytes.Buffer
+	check := func(wantError string) {
+		t.Helper()
+		err := run(ctx, clone, source, []string{"update", "--check"}, &out)
+		if wantError == "" && err != nil || wantError != "" && (err == nil || !strings.Contains(err.Error(), wantError)) {
+			t.Fatalf("got error %v, want %q", err, wantError)
+		}
+	}
+	check("")
+	writeFile(t, doc, []byte("Local edit.\r\n"))
+	check("local changes")
+	writeFile(t, doc, []byte("Original text.\r\n"))
+	binary := filepath.Join(dir, "data.bin")
+	writeFile(t, binary, []byte("byte-exact\r\n"))
+	check("local changes")
+	writeFile(t, binary, []byte("byte-exact\n"))
+	if _, err := git(ctx, clone, "config", "core.autocrlf", "false"); err != nil {
+		t.Fatal(err)
+	}
+	check("local changes")
+	if err := run(ctx, clone, source, []string{"remove", "demo"}, &out); err == nil || !strings.Contains(err.Error(), "local changes") {
+		t.Fatalf("expected remove to preserve the CRLF edit, got %v", err)
+	}
+	if _, err := git(ctx, clone, "config", "core.autocrlf", "true"); err != nil {
+		t.Fatal(err)
+	}
+	if err := run(ctx, clone, source, []string{"update"}, &out); err != nil {
+		t.Fatal(err)
+	}
+	if got := readFile(t, doc); !bytes.Equal(got, []byte("Upstream change.\n")) {
+		t.Fatalf("expected the new skill, got %q", got)
+	}
+}
+
+func TestRetiredSkillLifecycle(t *testing.T) {
+	ctx := context.Background()
+	source := t.TempDir()
+	initRepo(t, source)
+	manifest := filepath.Join(source, "catalog.json")
+	writeFile(t, manifest, []byte(`{"current":{"summary":"Current"},"retired":{"summary":"Retired"}}`))
+	current := filepath.Join(source, "skills", "current", "SKILL.md")
+	retired := filepath.Join(source, "skills", "retired", "SKILL.md")
+	writeFile(t, current, []byte("Original.\n"))
+	writeFile(t, retired, []byte("Retiring.\n"))
+	commitRepo(t, source)
+
+	dest := t.TempDir()
+	initRepo(t, dest)
+	command := func(upstream, wantError string, args ...string) string {
+		t.Helper()
+		var out bytes.Buffer
+		err := run(ctx, dest, upstream, args, &out)
+		if wantError == "" && err != nil || wantError != "" && (err == nil || !strings.Contains(err.Error(), wantError)) {
+			t.Fatalf("mstack %v: got error %v, want %q\n%s", args, err, wantError, out.String())
+		}
+		return out.String()
+	}
+	command(source, "", "install", "--all")
+	writeFile(t, manifest, []byte(`{"current":{"summary":"Current"}}`))
+	writeFile(t, current, []byte("Updated.\n"))
+	if err := os.Remove(retired); err != nil {
+		t.Fatal(err)
+	}
+	commitRepo(t, source)
+
+	p := openProject(dest)
+	before := readFile(t, p.lock)
+	for _, args := range [][]string{{"update", "--check"}, {"update"}} {
+		if out := command(source, "", args...); !strings.Contains(out, "Retired upstream (1): retired") ||
+			!strings.Contains(out, "(1): current") {
+			t.Fatalf("unexpected mstack %v output: %s", args, out)
+		}
+		if len(args) > 1 && !bytes.Equal(readFile(t, p.lock), before) {
+			t.Fatal("--check modified the lockfile")
+		}
+	}
+	installedCurrent := filepath.Join(p.skills, "current", "SKILL.md")
+	installedRetired := filepath.Join(p.skills, "retired", "SKILL.md")
+	if got := string(readFile(t, installedCurrent)); got != "Updated.\n" {
+		t.Fatalf("the retired skill blocked an independent update: %q", got)
+	}
+	command(source, "unavailable in the upstream catalog", "update", "retired")
+	offline := filepath.Join(t.TempDir(), "no-upstream")
+	command(offline, "not managed by mstack", "remove", "unknown")
+	writeFile(t, installedRetired, []byte("Local edit.\n"))
+	before = readFile(t, p.lock)
+	command(offline, "local changes", "remove", "current", "retired")
+	if !bytes.Equal(readFile(t, p.lock), before) || string(readFile(t, installedCurrent)) != "Updated.\n" ||
+		string(readFile(t, installedRetired)) != "Local edit.\n" {
+		t.Fatal("failed removal changed installed files or the lock")
+	}
+	writeFile(t, installedRetired, []byte("Retiring.\n"))
+	command(offline, "", "remove", "retired", "retired")
+	assertMissing(t, filepath.Dir(installedRetired))
+	if err := os.RemoveAll(filepath.Dir(installedCurrent)); err != nil {
+		t.Fatal(err)
+	}
+	command(offline, "", "remove", "current")
+	lock, err := p.readLock()
+	if err != nil || len(lock.Skills) != 0 {
+		t.Fatalf("expected empty lock after removal, got %+v, %v", lock, err)
+	}
+	assertMissing(t, p.transaction)
 }
 
 func initRepo(t *testing.T, dir string) {

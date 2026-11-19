@@ -70,28 +70,43 @@ mstack install --all
 mstack update --check
 mstack update full-stop
 mstack update
+mstack remove full-stop
 ```
 
 The CLI reads the catalog from `mstack`'s `main` branch. It installs whole
 folders and their required dependencies into `.agents/skills/` at your
 project's Git root. `.agents/mstack.lock.json` records the source commit and
 content fingerprint for each managed skill. If you share the skills through
-Git, commit the lock file alongside them.
+Git, commit the lock file alongside them. The CLI accepts Git checkout
+conversion from LF to CRLF for tracked text files.
 
-`mstack update` updates the project's managed skills. Pass names to update only
-those skills and their dependencies. `--check` previews the changes without
-writing to the project. Existing unmanaged folders, local edits, and missing
-managed folders block writes for the affected selection. If a process was
-forcibly interrupted during a write, keep `.agents/.mstack-write/` until you
-have checked the installed folders against the lock file. It may contain the
-original folders under `old/`.
+`mstack update` updates the project's available managed skills and reports any
+skills retired upstream. Pass names to update only those skills and their
+dependencies. `--check` previews the changes without writing to the project.
+Existing unmanaged folders, local edits, and missing managed folders block
+installs and updates for the affected selection.
+
+`mstack remove` deletes named managed skill folders and removes their lock
+entries. It works offline, preserves locally edited folders, and can clear a
+lock entry when the folder is already missing. It removes only the skills you
+name. If an installed skill still requires a removed dependency, an update
+can reinstall that dependency while it remains in the catalog.
+
+If a process was forcibly interrupted during a write, keep
+`.agents/.mstack-write/` until you have checked the installed folders against
+the lock file. It may contain the original folders under `old/`.
 
 Install the companion skill with `mstack install manage-mstack-skills`, or get
 it as part of `mstack install --all`. It guides the agent through skill
 management and CLI upgrades.
 
 When adding a skill, add its summary and required skill dependencies to
-`catalog.json`.
+`catalog.json`. Use relative Markdown links for local resources and
+cross-skill references so CI can check that they ship with the skill.
+
+This repository exposes its own catalog through the relative
+`.agents/skills` symlink. Edit the files in `skills/` directly when working
+here. Use the installer in other projects.
 
 ## Copying into projects manually
 

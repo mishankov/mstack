@@ -75,7 +75,7 @@ func TestProjectSkillLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []string{"babysit-pr", "file-pr", "full-send", "full-stop", "leaving-pr-comments", "review-loop"}
+	want := []string{"babysit-pr", "file-pr", "full-send", "full-stop", "implement", "leaving-pr-comments", "review-loop"}
 	if got := sortedKeys(lock.Skills); !slices.Equal(got, want) {
 		t.Fatalf("installed %v, want %v", got, want)
 	}

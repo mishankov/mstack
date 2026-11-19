@@ -12,14 +12,14 @@
   },
   "full-send": {
     "summary": "Take a change through review and merge the pull request",
-    "requires": ["babysit-pr", "file-pr", "review-loop"]
+    "requires": ["babysit-pr", "file-pr", "implement", "review-loop"]
   },
   "full-stop": {
     "summary": "Take a change through review and leave the pull request ready to merge",
     "requires": ["full-send"]
   },
   "implement": {
-    "summary": "Delegate independent implementation work to subagents"
+    "summary": "Check for skill updates and delegate independent implementation work"
   },
   "leaving-pr-comments": {
     "summary": "Format pull request comments written on the user's behalf"

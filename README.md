@@ -86,7 +86,7 @@ own workflow.
 | --- | --- |
 | [capture-issue](skills/capture-issue/SKILL.md) | Record a request or follow-up in the project backlog. |
 | [pick-next-work](skills/pick-next-work/SKILL.md) | Compare backlog priorities and recommend what to work on next. |
-| [implement](skills/implement/SKILL.md) | Delegate independent implementation work to subagents. |
+| [implement](skills/implement/SKILL.md) | Check for skill updates and delegate independent implementation work. |
 | [full-stop](skills/full-stop/SKILL.md) | Implement a change and leave the reviewed PR ready to merge. |
 | [full-send](skills/full-send/SKILL.md) | Implement a change and carry the PR through review and merge. |
 | [review-loop](skills/review-loop/SKILL.md) | Review a change with Astra and resolve findings in a bounded loop. |
@@ -101,6 +101,20 @@ own workflow.
 
 Ask your agent to check for updates, install more skills, or remove a skill.
 The full catalog includes `manage-mstack-skills` to guide it through these tasks.
+
+Before implementation, mstack's implementation and delivery skills check once
+for updates to skills tracked in `.agents/mstack.lock.json`. The agent asks
+before applying updates and defers them in unattended runs such as `full send`
+and `full stop`. To allow automatic updates, including during unattended runs,
+add this instruction to your project's `AGENTS.md`.
+
+```markdown
+Automatically apply mstack skill updates before implementation.
+```
+
+If you already use mstack, run `mstack update` once to install the skills that
+perform this check. If your agent loads skills at startup, start a new session
+to pick up the new instructions.
 
 | Command | What it does |
 | --- | --- |

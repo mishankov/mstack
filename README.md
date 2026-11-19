@@ -11,6 +11,7 @@ Capture → pick and refine → `full-stop` or `full-send` → reconcile the bac
 | --- | --- |
 | [capture-issue](skills/capture-issue/SKILL.md) | Capture a request, agreed follow-up, or unfinished work in the project backlog. |
 | [pick-next-work](skills/pick-next-work/SKILL.md) | Review remaining work, compare priorities, or choose the next useful item. |
+| [implement](skills/implement/SKILL.md) | Delegate independent work to subagents when implementing a change. |
 | [full-send](skills/full-send/SKILL.md) | Implement, prove, review, and carry a change through a merged PR. |
 | [full-stop](skills/full-stop/SKILL.md) | Follow the same workflow, leaving a ready PR unmerged. |
 | [review-loop](skills/review-loop/SKILL.md) | Review with Sol through a bounded findings loop. |

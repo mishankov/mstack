@@ -21,6 +21,7 @@ Usage:
   mstack install --all
   mstack update [<skill>...]
   mstack update --check [<skill>...]
+  mstack remove <skill>...
   mstack --version
 
 Skills are installed in .agents/skills/ at the Git root.
@@ -41,7 +42,7 @@ func parse(args []string) (request, error) {
 	switch r.command {
 	case "--help", "-h", "help":
 		return request{command: "help"}, nil
-	case "--version", "list", "install", "update":
+	case "--version", "list", "install", "update", "remove":
 	default:
 		return request{}, fmt.Errorf("unknown command %q (see mstack --help)", r.command)
 	}
@@ -53,7 +54,7 @@ func parse(args []string) (request, error) {
 			r.all = true
 		case r.command == "update" && arg == "--check":
 			r.check = true
-		case (r.command == "install" || r.command == "update") && validName(arg):
+		case (r.command == "install" || r.command == "update" || r.command == "remove") && validName(arg):
 			r.names = append(r.names, arg)
 		default:
 			return request{}, fmt.Errorf("unexpected argument %q for %s (see mstack --help)", arg, r.command)
@@ -66,6 +67,9 @@ func parse(args []string) (request, error) {
 		if !r.all && len(r.names) == 0 {
 			return request{}, fmt.Errorf("install requires skill names or --all (see mstack --help)")
 		}
+	}
+	if r.command == "remove" && len(r.names) == 0 {
+		return request{}, fmt.Errorf("remove requires skill names (see mstack --help)")
 	}
 	return r, nil
 }
@@ -99,12 +103,15 @@ func run(ctx context.Context, cwd, source string, args []string, out io.Writer) 
 		}
 		return execute()
 	}
-	if r.command == "update" {
+	if r.command == "update" || r.command == "remove" {
 		present, err := directoryExists(p.agents)
 		if err != nil {
 			return err
 		}
 		if !present {
+			if r.command == "remove" {
+				return fmt.Errorf("skill %q is not managed by mstack", r.names[0])
+			}
 			if _, err := updateTargets(r.names, lockFile{}); err != nil {
 				return err
 			}

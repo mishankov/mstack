@@ -1,6 +1,6 @@
 ---
 name: manage-mstack-skills
-description: Use when the user asks to list, install, or update mstack skills in a project, or to install or upgrade the mstack CLI.
+description: Use when the user asks to list, install, update, or remove mstack skills in a project, or to install or upgrade the mstack CLI.
 ---
 
 # Manage mstack skills
@@ -23,7 +23,11 @@ Run skill commands from the intended project's Git checkout.
   their required dependencies. Use `mstack install --all` for the full catalog.
 - Use `mstack update --check` to check for updates without applying them.
 - Use `mstack update <skill>...` to update named skills, or `mstack update` to
-  update every managed skill in the project.
+  update all managed skills still available upstream. Bulk updates report and
+  skip retired skills.
+- Use `mstack remove <skill>...` to remove named managed skills when requested.
+  Before removing a skill that other installed skills use, tell the user which
+  workflows depend on it.
 
 If the CLI reports a collision or local edits, preserve the affected files and
 report their paths. After a successful write, summarize what changed.

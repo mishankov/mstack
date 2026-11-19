@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -56,7 +57,7 @@ func (p project) withWriter(execute func() error) (result error) {
 	return execute()
 }
 
-func (p project) apply(c catalog, plan changes, lock lockFile) (result error) {
+func (p project) apply(ctx context.Context, c catalog, plan changes, lock lockFile) (result error) {
 	staged := filepath.Join(p.transaction, "new")
 	backup := filepath.Join(p.transaction, "old")
 	for _, dir := range []string{staged, backup} {
@@ -70,7 +71,7 @@ func (p project) apply(c catalog, plan changes, lock lockFile) (result error) {
 		if err := os.CopyFS(dest, os.DirFS(filepath.Join(c.dir, name))); err != nil {
 			return fmt.Errorf("stage %s: %w", name, err)
 		}
-		digest, err := fingerprint(dest)
+		digest, err := fingerprint(dest, nil)
 		if err != nil {
 			return fmt.Errorf("verify staged skill %q: %w", name, err)
 		}
@@ -83,6 +84,9 @@ func (p project) apply(c catalog, plan changes, lock lockFile) (result error) {
 	for name, record := range plan.records {
 		nextLock.Skills[name] = record
 	}
+	for _, name := range plan.remove {
+		delete(nextLock.Skills, name)
+	}
 	data, err := json.MarshalIndent(nextLock, "", "  ")
 	if err != nil {
 		return err
@@ -91,8 +95,10 @@ func (p project) apply(c catalog, plan changes, lock lockFile) (result error) {
 	if err := os.WriteFile(stagedLock, append(data, '\n'), 0o644); err != nil {
 		return err
 	}
-	if err := os.MkdirAll(p.skills, 0o755); err != nil {
-		return err
+	if len(plan.install) > 0 {
+		if err := os.MkdirAll(p.skills, 0o755); err != nil {
+			return err
+		}
 	}
 
 	type move struct{ from, to string }
@@ -116,7 +122,7 @@ func (p project) apply(c catalog, plan changes, lock lockFile) (result error) {
 		}
 	}()
 	for _, name := range plan.install {
-		if err := p.validateLocal(name, installedSkill{}, false); err != nil {
+		if err := p.validateLocal(ctx, name, installedSkill{}, false); err != nil {
 			return err
 		}
 		if err := rename(filepath.Join(staged, name), filepath.Join(p.skills, name)); err != nil {
@@ -124,7 +130,7 @@ func (p project) apply(c catalog, plan changes, lock lockFile) (result error) {
 		}
 	}
 	for _, name := range plan.update {
-		if err := p.validateLocal(name, lock.Skills[name], true); err != nil {
+		if err := p.validateLocal(ctx, name, lock.Skills[name], true); err != nil {
 			return err
 		}
 		dest := filepath.Join(p.skills, name)
@@ -132,6 +138,18 @@ func (p project) apply(c catalog, plan changes, lock lockFile) (result error) {
 			return err
 		}
 		if err := rename(filepath.Join(staged, name), dest); err != nil {
+			return err
+		}
+	}
+	for _, name := range plan.remove {
+		err := p.validateLocal(ctx, name, lock.Skills[name], true)
+		if errors.Is(err, errMissingSkill) {
+			continue
+		}
+		if err != nil {
+			return err
+		}
+		if err := rename(filepath.Join(p.skills, name), filepath.Join(backup, name)); err != nil {
 			return err
 		}
 	}

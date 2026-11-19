@@ -1,6 +1,7 @@
 # mstack
 
-- The source catalog is `skills/`.
+- The source catalog is `skills/`. This repository exposes it to agents through
+  the relative `.agents/skills` symlink.
 - Skill descriptions contain activation conditions. Bodies use direct
   procedures, concrete handoffs, and only the constraints the task needs.
 - Keep skills portable. Project commands, trackers, and environments belong in

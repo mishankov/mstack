@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -94,7 +95,7 @@ func directoryExists(path string) (bool, error) {
 	return true, nil
 }
 
-func fingerprint(dir string) (string, error) {
+func fingerprint(dir string, checkoutBytes map[string][]byte) (string, error) {
 	hash := sha256.New()
 	err := fs.WalkDir(os.DirFS(dir), ".", func(path string, entry fs.DirEntry, err error) error {
 		if err != nil {
@@ -111,8 +112,22 @@ func fingerprint(dir string) (string, error) {
 		if !info.Mode().IsRegular() {
 			return fmt.Errorf("%q is not a regular file", path)
 		}
-		fmt.Fprintf(hash, "file %q %t %d\n", path, info.Mode().Perm()&0o100 != 0, info.Size())
-		file, err := os.Open(filepath.Join(dir, filepath.FromSlash(path)))
+		filename := filepath.Join(dir, filepath.FromSlash(path))
+		executable := info.Mode().Perm()&0o100 != 0
+		if expected, ok := checkoutBytes[path]; ok {
+			data, err := os.ReadFile(filename)
+			if err != nil {
+				return err
+			}
+			if bytes.Equal(data, expected) {
+				data = bytes.ReplaceAll(data, []byte("\r\n"), []byte("\n"))
+			}
+			fmt.Fprintf(hash, "file %q %t %d\n", path, executable, len(data))
+			_, err = hash.Write(data)
+			return err
+		}
+		fmt.Fprintf(hash, "file %q %t %d\n", path, executable, info.Size())
+		file, err := os.Open(filename)
 		if err != nil {
 			return err
 		}
@@ -125,12 +140,34 @@ func fingerprint(dir string) (string, error) {
 	return hex.EncodeToString(hash.Sum(nil)), nil
 }
 
-func (p project) validateLocal(name string, record installedSkill, managed bool) error {
+func checkoutCRLFFiles(ctx context.Context, dir string) (map[string][]byte, error) {
+	index, err := git(ctx, dir, "ls-files", "--eol", "-z", "--", ".")
+	if err != nil {
+		return nil, err
+	}
+	files := make(map[string][]byte)
+	for _, record := range bytes.Split(index, []byte{0}) {
+		info, path, ok := strings.Cut(string(record), "\t")
+		fields := strings.Fields(info)
+		if ok && len(fields) >= 3 && fields[0] == "i/lf" && fields[1] == "w/crlf" && fields[2] != "attr/-text" {
+			data, err := git(ctx, dir, "cat-file", "--filters", ":./"+path)
+			if err != nil {
+				return nil, err
+			}
+			files[path] = data
+		}
+	}
+	return files, nil
+}
+
+var errMissingSkill = errors.New("managed skill is missing")
+
+func (p project) validateLocal(ctx context.Context, name string, record installedSkill, managed bool) error {
 	dest := filepath.Join(p.skills, name)
 	info, err := os.Lstat(dest)
 	if errors.Is(err, fs.ErrNotExist) {
 		if managed {
-			return fmt.Errorf("managed skill is missing at %s", dest)
+			return fmt.Errorf("%w at %s", errMissingSkill, dest)
 		}
 		return nil
 	}
@@ -143,7 +180,16 @@ func (p project) validateLocal(name string, record installedSkill, managed bool)
 	if !info.IsDir() {
 		return fmt.Errorf("local changes at %s (expected a skill directory)", dest)
 	}
-	digest, err := fingerprint(dest)
+	digest, err := fingerprint(dest, nil)
+	if err == nil && digest != record.SHA256 {
+		// Keep the raw lockfile hash. Only normalize tracked CRLF files whose
+		// bytes match what Git checks out under the active attributes and config.
+		var files map[string][]byte
+		files, err = checkoutCRLFFiles(ctx, dest)
+		if err == nil && len(files) > 0 {
+			digest, err = fingerprint(dest, files)
+		}
+	}
 	if err != nil {
 		return fmt.Errorf("inspect managed skill at %s: %w", dest, err)
 	}
@@ -156,20 +202,21 @@ func (p project) validateLocal(name string, record installedSkill, managed bool)
 type changes struct {
 	install []string
 	update  []string
+	remove  []string
 	current int
 	records map[string]installedSkill
 }
 
-func (p project) plan(c catalog, names []string, lock lockFile) (changes, error) {
+func (p project) plan(ctx context.Context, c catalog, names []string, lock lockFile) (changes, error) {
 	plan := changes{records: make(map[string]installedSkill)}
 	var conflicts []error
 	for _, name := range names {
 		local, managed := lock.Skills[name]
-		localErr := p.validateLocal(name, local, managed)
+		localErr := p.validateLocal(ctx, name, local, managed)
 		if localErr != nil {
 			conflicts = append(conflicts, localErr)
 		}
-		digest, err := fingerprint(filepath.Join(c.dir, name))
+		digest, err := fingerprint(filepath.Join(c.dir, name), nil)
 		if err != nil {
 			return changes{}, fmt.Errorf("read upstream skill %q: %w", name, err)
 		}
@@ -201,10 +248,30 @@ func updateTargets(names []string, lock lockFile) ([]string, error) {
 	return names, nil
 }
 
+func (p project) remove(ctx context.Context, names []string, lock lockFile, out io.Writer) error {
+	names = slices.Compact(slices.Sorted(slices.Values(names)))
+	for _, name := range names {
+		if _, ok := lock.Skills[name]; !ok {
+			return fmt.Errorf("skill %q is not managed by mstack", name)
+		}
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if err := p.apply(ctx, catalog{}, changes{remove: names}, lock); err != nil {
+		return err
+	}
+	fmt.Fprintf(out, "Removed (%d): %s\n", len(names), strings.Join(names, ", "))
+	return nil
+}
+
 func (p project) execute(ctx context.Context, source string, r request, out io.Writer) error {
 	lock, err := p.readLock()
 	if err != nil {
 		return err
+	}
+	if r.command == "remove" {
+		return p.remove(ctx, r.names, lock, out)
 	}
 	names := r.names
 	if r.command == "update" {
@@ -232,11 +299,26 @@ func (p project) execute(ctx context.Context, source string, r request, out io.W
 	if r.all {
 		names = sortedKeys(c.skills)
 	}
+	if r.command == "update" && len(r.names) == 0 {
+		available := names[:0]
+		var retired []string
+		for _, name := range names {
+			if _, ok := c.skills[name]; ok {
+				available = append(available, name)
+			} else {
+				retired = append(retired, name)
+			}
+		}
+		names = available
+		if len(retired) > 0 {
+			fmt.Fprintf(out, "Retired upstream (%d): %s\n", len(retired), strings.Join(retired, ", "))
+		}
+	}
 	names, err = c.selectSkills(names)
 	if err != nil {
 		return err
 	}
-	plan, err := p.plan(c, names, lock)
+	plan, err := p.plan(ctx, c, names, lock)
 	if r.check {
 		plan.report(out, "Updates available", "Dependencies to install")
 		return err
@@ -248,7 +330,7 @@ func (p project) execute(ctx context.Context, source string, r request, out io.W
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		if err := p.apply(c, plan, lock); err != nil {
+		if err := p.apply(ctx, c, plan, lock); err != nil {
 			return err
 		}
 	}

@@ -14,9 +14,10 @@ Capture → pick and refine → `full-stop` or `full-send` → reconcile the bac
 | [implement](skills/implement/SKILL.md) | Delegate independent work to subagents when implementing a change. |
 | [full-send](skills/full-send/SKILL.md) | Implement, prove, review, and carry a change through a merged PR. |
 | [full-stop](skills/full-stop/SKILL.md) | Follow the same workflow, leaving a ready PR unmerged. |
-| [review-loop](skills/review-loop/SKILL.md) | Review with Sol through a bounded findings loop. |
+| [review-loop](skills/review-loop/SKILL.md) | Review with Astra at high reasoning effort through a bounded findings loop. |
 | [review-group](skills/review-group/SKILL.md) | Request feedback from three providers' models. |
 | [use-ui-sdk](skills/use-ui-sdk/SKILL.md) | Use Vercel's UI SDK and its version-matched guidance when implementing web UI. |
+| [manage-mstack-skills](skills/manage-mstack-skills/SKILL.md) | Manage mstack skills in a project and install or upgrade the CLI. |
 
 Included helpers:
 
@@ -29,7 +30,7 @@ Included helpers:
 `full-send` calls `review-loop`, `file-pr`, and `babysit-pr`. `full-stop` builds on
 `full-send`. The PR helpers use `leaving-pr-comments`. `review-group` is a separately
 selected review mode; requesting it alongside a delivery mode should make clear
-whether it replaces or supplements the usual Sol review.
+whether it replaces or supplements the usual Astra review.
 
 ## Working with the backlog
 
@@ -44,7 +45,55 @@ choose-and-implement request continues into the requested execution workflow.
 The delivery modes end at PR readiness or merge. Release, installation, and
 deployment continue through each project's established workflow.
 
-## Copying into projects
+## Installing and updating with the CLI
+
+Install or upgrade the CLI with Go 1.23 or later. Make sure Git and the Go
+binary directory are on your `PATH`. Go uses `GOBIN` if configured and
+`$GOPATH/bin` by default.
+
+Configure Git credentials with read access to the private `mstack` repository.
+Set `GOPRIVATE` for the install so Go fetches the module directly from GitHub.
+
+```sh
+GOPRIVATE=github.com/mishankov/mstack \
+  go install github.com/mishankov/mstack/cmd/mstack@latest
+mstack --version
+mstack --help
+```
+
+Run these commands in the Git project where you want to manage the skills.
+
+```sh
+mstack list
+mstack install full-stop
+mstack install --all
+mstack update --check
+mstack update full-stop
+mstack update
+```
+
+The CLI reads the catalog from `mstack`'s `main` branch. It installs whole
+folders and their required dependencies into `.agents/skills/` at your
+project's Git root. `.agents/mstack.lock.json` records the source commit and
+content fingerprint for each managed skill. If you share the skills through
+Git, commit the lock file alongside them.
+
+`mstack update` updates the project's managed skills. Pass names to update only
+those skills and their dependencies. `--check` previews the changes without
+writing to the project. Existing unmanaged folders, local edits, and missing
+managed folders block writes for the affected selection. If a process was
+forcibly interrupted during a write, keep `.agents/.mstack-write/` until you
+have checked the installed folders against the lock file. It may contain the
+original folders under `old/`.
+
+Install the companion skill with `mstack install manage-mstack-skills`, or get
+it as part of `mstack install --all`. It guides the agent through skill
+management and CLI upgrades.
+
+When adding a skill, add its summary and required skill dependencies to
+`catalog.json`.
+
+## Copying into projects manually
 
 `skills/` is the source catalog. Copy complete skill folders into the destination
 project's existing skill directory, commonly `.agents/skills/`. Copy the full

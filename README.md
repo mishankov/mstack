@@ -1,126 +1,149 @@
 # mstack
 
-A portable development skill collection for backlog management, implementation,
-review, and PR delivery.
+mstack gives your coding agent reusable workflows for managing a backlog,
+implementing changes, and getting pull requests through review. The skills live
+in your project and use its existing tracker and conventions.
 
-Capture → pick and refine → `full-stop` or `full-send` → reconcile the backlog.
+## Install the CLI
 
-## Skills
+Install the `mstack` CLI once in the environment where your coding agent runs.
+You'll need Go 1.23 or later. Paste this into your agent.
 
-| Skill | Role |
-| --- | --- |
-| [capture-issue](skills/capture-issue/SKILL.md) | Capture a request, agreed follow-up, or unfinished work in the project backlog. |
-| [pick-next-work](skills/pick-next-work/SKILL.md) | Review remaining work, compare priorities, or choose the next useful item. |
-| [implement](skills/implement/SKILL.md) | Delegate independent work to subagents when implementing a change. |
-| [full-send](skills/full-send/SKILL.md) | Implement, prove, review, and carry a change through a merged PR. |
-| [full-stop](skills/full-stop/SKILL.md) | Follow the same workflow, leaving a ready PR unmerged. |
-| [review-loop](skills/review-loop/SKILL.md) | Review with Astra at high reasoning effort through a bounded findings loop. |
-| [review-group](skills/review-group/SKILL.md) | Request feedback from three providers' models. |
-| [use-ui-sdk](skills/use-ui-sdk/SKILL.md) | Use Vercel's UI SDK and its version-matched guidance when implementing web UI. |
-| [manage-mstack-skills](skills/manage-mstack-skills/SKILL.md) | Manage mstack skills in a project and install or upgrade the CLI. |
+```text
+Install the mstack CLI using the command below.
 
-Included helpers:
+go install github.com/mishankov/mstack/cmd/mstack@latest
 
-- [file-pr](skills/file-pr/SKILL.md) — prepare and open the PR.
-- [babysit-pr](skills/babysit-pr/SKILL.md) — follow checks and reviews; includes
-  the executable `scripts/pr-wait` helper for environments outside T3.
-- [leaving-pr-comments](skills/leaving-pr-comments/SKILL.md) — format comments
-  written on the user's behalf.
+Verify the installation with mstack --version. If mstack isn't on PATH, use
+the executable in Go's binary directory (GOBIN, or bin in the first GOPATH
+entry) and tell me where it was installed.
+```
 
-`full-send` calls `review-loop`, `file-pr`, and `babysit-pr`. `full-stop` builds on
-`full-send`. The PR helpers use `leaving-pr-comments`. `review-group` is a separately
-selected review mode; requesting it alongside a delivery mode should make clear
-whether it replaces or supplements the usual Astra review.
+Rerun the same command to upgrade the CLI.
 
-## Working with the backlog
+<details>
+<summary>Install the CLI from the terminal</summary>
 
-Keep the selected issue linked to its implementation and PR. Capture agreed
-follow-ups and reconcile the item's actual state at handoff or completion.
-
-The backlog skills discover the project's tracker, priorities, and conventions.
-Keep project-specific commands and environment details in that project's existing
-documentation. A planning request ends at a recommendation; an explicit
-choose-and-implement request continues into the requested execution workflow.
-
-The delivery modes end at PR readiness or merge. Release, installation, and
-deployment continue through each project's established workflow.
-
-## Installing and updating with the CLI
-
-Install or upgrade the CLI with Go 1.23 or later. Make sure Git and the Go
-binary directory are on your `PATH`. Go uses `GOBIN` if configured and
-`$GOPATH/bin` by default.
-
-Configure Git credentials with read access to the private `mstack` repository.
-Set `GOPRIVATE` for the install so Go fetches the module directly from GitHub.
+Make sure Go's binary directory is on your `PATH` before running `mstack`.
 
 ```sh
-GOPRIVATE=github.com/mishankov/mstack \
-  go install github.com/mishankov/mstack/cmd/mstack@latest
+go install github.com/mishankov/mstack/cmd/mstack@latest
 mstack --version
-mstack --help
 ```
 
-Run these commands in the Git project where you want to manage the skills.
+</details>
+
+## Install skills in a project
+
+Open your agent in the target Git project. It needs Git, the `mstack` CLI,
+and support for loading skills from `.agents/skills/`. Paste this to install
+the full catalog.
+
+```text
+Use the mstack CLI to install all skills in my current Git project. Run
+mstack install --all, then use mstack list to verify what was installed.
+Preserve existing skill files if the installer reports a collision or local
+edits, and tell me what blocked setup.
+```
+
+For a smaller install, tell your agent which skills you want. For example,
+`mstack install capture-issue pick-next-work` installs the backlog skills.
+mstack automatically includes any required dependencies.
+
+<details>
+<summary>Install project skills from the terminal</summary>
+
+Run these commands from the target Git project.
 
 ```sh
-mstack list
-mstack install full-stop
 mstack install --all
-mstack update --check
-mstack update full-stop
-mstack update
-mstack remove full-stop
+mstack list
 ```
 
-The CLI reads the catalog from `mstack`'s `main` branch. It installs whole
-folders and their required dependencies into `.agents/skills/` at your
-project's Git root. `.agents/mstack.lock.json` records the source commit and
-content fingerprint for each managed skill. If you share the skills through
-Git, commit the lock file alongside them. The CLI accepts Git checkout
-conversion from LF to CRLF for tracked text files.
+</details>
 
-`mstack update` updates the project's available managed skills and reports any
-skills retired upstream. Pass names to update only those skills and their
-dependencies. `--check` previews the changes without writing to the project.
-Existing unmanaged folders, local edits, and missing managed folders block
-installs and updates for the affected selection.
+## Try it in your project
 
-`mstack remove` deletes named managed skill folders and removes their lock
-entries. It works offline, preserves locally edited folders, and can clear a
-lock entry when the folder is already missing. It removes only the skills you
-name. If an installed skill still requires a removed dependency, an update
-can reinstall that dependency while it remains in the catalog.
+If your agent loads skills at startup, start a new session in the project
+after installation. Try one of these prompts with the relevant skills installed.
 
-If a process was forcibly interrupted during a write, keep
-`.agents/.mstack-write/` until you have checked the installed folders against
-the lock file. It may contain the original folders under `old/`.
+- **Capture a follow-up.** “Capture an issue to document how to run our tests
+  locally.”
+- **Choose what to work on.** “Pick the next work from our backlog and explain
+  your recommendation.”
+- **Prepare a PR for handoff.** “Implement the selected issue and full stop.”
+  The agent takes it through review and leaves the PR ready for you to merge.
+- **Deliver through merge.** “Implement the selected issue and full send.” The
+  agent takes it through review and merges once it meets the merge requirements.
 
-Install the companion skill with `mstack install manage-mstack-skills`, or get
-it as part of `mstack install --all`. It guides the agent through skill
-management and CLI upgrades.
+The delivery workflows need an agent that can delegate review to Astra and
+access the project's PR tooling. Release and deployment follow your project's
+own workflow.
 
-When adding a skill, add its summary and required skill dependencies to
-`catalog.json`. Use relative Markdown links for local resources and
-cross-skill references. Run `go test -count=1 ./...` to validate the catalog
-against the current checkout and Git index.
+## Skill catalog
 
-This repository exposes its own catalog through the relative
-`.agents/skills` symlink. Edit the files in `skills/` directly when working
-here. Use the installer in other projects.
+| Skill | What it does |
+| --- | --- |
+| [capture-issue](skills/capture-issue/SKILL.md) | Record a request or follow-up in the project backlog. |
+| [pick-next-work](skills/pick-next-work/SKILL.md) | Compare backlog priorities and recommend what to work on next. |
+| [implement](skills/implement/SKILL.md) | Delegate independent implementation work to subagents. |
+| [full-stop](skills/full-stop/SKILL.md) | Implement a change and leave the reviewed PR ready to merge. |
+| [full-send](skills/full-send/SKILL.md) | Implement a change and carry the PR through review and merge. |
+| [review-loop](skills/review-loop/SKILL.md) | Review a change with Astra and resolve findings in a bounded loop. |
+| [review-group](skills/review-group/SKILL.md) | Get review feedback from three model providers. |
+| [file-pr](skills/file-pr/SKILL.md) | Prepare and open a pull request. |
+| [babysit-pr](skills/babysit-pr/SKILL.md) | Follow pull request checks and reviews. |
+| [leaving-pr-comments](skills/leaving-pr-comments/SKILL.md) | Format GitHub comments written on your behalf. |
+| [use-ui-sdk](skills/use-ui-sdk/SKILL.md) | Follow Vercel's UI SDK guidance for web UI work. |
+| [manage-mstack-skills](skills/manage-mstack-skills/SKILL.md) | Install, update, and remove mstack skills or upgrade the CLI. |
 
-## Copying into projects manually
+## Manage skills
 
-`skills/` is the source catalog. Copy complete skill folders into the destination
-project's existing skill directory, commonly `.agents/skills/`. Copy the full
-collection for the complete dependency set, or include all dependencies of any
-selected subset. Keep helper scripts, executable permissions, and `agents/`
-metadata with their skill folders.
+Ask your agent to check for updates, install more skills, or remove a skill.
+The full catalog includes `manage-mstack-skills` to guide it through these tasks.
 
-Review name collisions before copying so existing customized skills are not
-silently overwritten. Keep personal model preferences and project facts outside
-the shared skill bodies. Preparing this repository does not install skills into
-the user's global configuration or other projects.
+| Command | What it does |
+| --- | --- |
+| `mstack list` | Show the available skills and their status in your project. |
+| `mstack install <skill>...` | Install the named skills and their dependencies. |
+| `mstack update --check` | Preview updates without applying them. |
+| `mstack update` | Update managed skills still in the catalog and report retired skills. |
+| `mstack update <skill>...` | Update the named skills and their dependencies. |
+| `mstack remove <skill>...` | Remove the named managed skills and their lock entries. Works offline. |
+
+The CLI installs complete skill folders from mstack's `main` branch into
+`.agents/skills/` at your project's Git root. If you share these folders through
+Git, commit `.agents/mstack.lock.json` alongside them to record their source
+commits and content fingerprints.
+
+An update can reinstall a removed skill if another installed skill still
+requires it.
+
+<details>
+<summary>Troubleshooting and recovery</summary>
+
+- **Download fails.** Check that the agent's environment can reach GitHub
+  and the Go module proxy.
+- **A skill has local changes.** mstack preserves local edits and unmanaged
+  folders. Review the reported paths before retrying.
+- **A managed skill folder is missing.** Run `mstack remove <skill>` to clear
+  its lock entry before reinstalling it.
+- **A write was interrupted.** Keep `.agents/.mstack-write/` until you've
+  checked the installed folders against the lock file. The `old/` subdirectory
+  may contain the original folders.
+
+</details>
+
+## Help and contributions
+
+Report setup problems or suggest a skill in
+[GitHub Issues](https://github.com/mishankov/mstack/issues).
+
+Edit skill sources in [`skills/`](skills/). For new skills, add the summary and
+required dependencies to [`catalog.json`](catalog.json). Keep resource links
+relative and include any helper scripts and agent metadata in the skill folder.
+Run `go test -count=1 ./...` to validate the CLI and catalog before submitting a
+change. See [AGENTS.md](AGENTS.md) for the repository conventions.
 
 Some skills originated in [tstack](https://github.com/t3dotgg/tstack).
 

@@ -5,16 +5,15 @@ description: Use when the user asks to list, install, update, or remove mstack s
 
 # Manage mstack skills
 
-Install or upgrade the CLI when requested using Git credentials with read
-access to the private `mstack` repository.
+Install the CLI if it's missing during a requested skill operation. Use the
+same command when asked to upgrade it. The installer requires Go 1.23 or later.
 
 ```sh
-GOPRIVATE=github.com/mishankov/mstack \
-  go install github.com/mishankov/mstack/cmd/mstack@latest
+go install github.com/mishankov/mstack/cmd/mstack@latest
 ```
 
-Verify the version on `PATH` with `mstack --version`. If the binary is missing
-during a skill operation, report the setup command so the user can install it.
+Verify the version with `mstack --version`. If the binary is missing from
+`PATH`, use it from `GOBIN` or the `bin` directory in the first `GOPATH` entry.
 
 Run skill commands from the intended project's Git checkout.
 

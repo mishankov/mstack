@@ -21,6 +21,9 @@
   "implement": {
     "summary": "Check for skill updates and delegate independent implementation work"
   },
+  "implement-ui": {
+    "summary": "Implement or change user interfaces on any platform"
+  },
   "leaving-pr-comments": {
     "summary": "Format pull request comments written on the user's behalf"
   },
@@ -35,8 +38,5 @@
   },
   "review-loop": {
     "summary": "Review a change with Astra through a bounded findings loop"
-  },
-  "use-ui-sdk": {
-    "summary": "Use Vercel's UI SDK when implementing web UI"
   }
 }

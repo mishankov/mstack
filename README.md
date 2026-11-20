@@ -94,7 +94,7 @@ own workflow.
 | [file-pr](skills/file-pr/SKILL.md) | Prepare and open a pull request. |
 | [babysit-pr](skills/babysit-pr/SKILL.md) | Follow pull request checks and reviews. |
 | [leaving-pr-comments](skills/leaving-pr-comments/SKILL.md) | Format GitHub comments written on your behalf. |
-| [use-ui-sdk](skills/use-ui-sdk/SKILL.md) | Follow Vercel's UI SDK guidance for web UI work. |
+| [implement-ui](skills/implement-ui/SKILL.md) | Implement or change user interfaces on any platform. |
 | [manage-mstack-skills](skills/manage-mstack-skills/SKILL.md) | Install, update, and remove mstack skills or upgrade the CLI. |
 
 ## Manage skills

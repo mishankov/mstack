@@ -35,8 +35,10 @@ func openProject(root string) project {
 }
 
 type installedSkill struct {
-	Commit string `json:"commit"`
-	SHA256 string `json:"sha256"`
+	Commit  string          `json:"commit"`
+	SHA256  string          `json:"sha256"`
+	Release string          `json:"release,omitempty"`
+	Source  *sourceLocation `json:"source,omitempty"`
 }
 
 type lockFile struct {
@@ -207,7 +209,7 @@ type changes struct {
 	records map[string]installedSkill
 }
 
-func (p project) plan(ctx context.Context, c catalog, names []string, lock lockFile) (changes, error) {
+func (p project) plan(ctx context.Context, c catalog, names []string, lock lockFile, preview bool) (changes, error) {
 	plan := changes{records: make(map[string]installedSkill)}
 	var conflicts []error
 	for _, name := range names {
@@ -216,14 +218,40 @@ func (p project) plan(ctx context.Context, c catalog, names []string, lock lockF
 		if localErr != nil {
 			conflicts = append(conflicts, localErr)
 		}
-		digest, err := fingerprint(filepath.Join(c.dir, name), nil)
-		if err != nil {
-			return changes{}, fmt.Errorf("read upstream skill %q: %w", name, err)
+		source := c.skills[name].Source
+		record := installedSkill{Commit: c.revision}
+		if source != nil {
+			release, err := source.latest(ctx, c.dir)
+			if err != nil {
+				return changes{}, fmt.Errorf("check releases for external skill %q: %w", name, err)
+			}
+			if source.matches(local, release) {
+				if localErr == nil {
+					plan.current++
+				}
+				continue
+			}
+			if !preview {
+				if err := c.fetchExternal(ctx, name, *source, release); err != nil {
+					return changes{}, fmt.Errorf("fetch external skill %q at %s: %w", name, release.tag, err)
+				}
+			}
+			record.Commit = release.commit
+			record.Release = release.tag
+			record.Source = &source.sourceLocation
+		}
+		if source == nil || !preview {
+			digest, err := fingerprint(filepath.Join(c.dir, name), nil)
+			if err != nil {
+				return changes{}, fmt.Errorf("read upstream skill %q: %w", name, err)
+			}
+			record.SHA256 = digest
 		}
 		switch {
 		case !managed:
 			plan.install = append(plan.install, name)
-		case digest != local.SHA256:
+		// Record a changed external release or source even when the installed bytes match.
+		case record.SHA256 != local.SHA256 || source != nil || local.Source != nil:
 			plan.update = append(plan.update, name)
 		default:
 			if localErr == nil {
@@ -231,7 +259,9 @@ func (p project) plan(ctx context.Context, c catalog, names []string, lock lockF
 			}
 			continue
 		}
-		plan.records[name] = installedSkill{Commit: c.revision, SHA256: digest}
+		if !preview {
+			plan.records[name] = record
+		}
 	}
 	return plan, errors.Join(conflicts...)
 }
@@ -297,7 +327,11 @@ func (p project) execute(ctx context.Context, source string, r request, out io.W
 		return p.list(c, lock, out)
 	}
 	if r.all {
-		names = sortedKeys(c.skills)
+		for _, name := range sortedKeys(c.skills) {
+			if c.skills[name].Source == nil {
+				names = append(names, name)
+			}
+		}
 	}
 	if r.command == "update" && len(r.names) == 0 {
 		available := names[:0]
@@ -318,7 +352,7 @@ func (p project) execute(ctx context.Context, source string, r request, out io.W
 	if err != nil {
 		return err
 	}
-	plan, err := p.plan(ctx, c, names, lock)
+	plan, err := p.plan(ctx, c, names, lock, r.check)
 	if r.check {
 		plan.report(out, "Updates available", "Dependencies to install")
 		return err
@@ -367,6 +401,9 @@ func (p project) list(c catalog, lock lockFile, out io.Writer) error {
 		summary := c.skills[name].Summary
 		if summary == "" {
 			summary = "Removed from the upstream catalog"
+		}
+		if c.skills[name].Source != nil {
+			summary += " (external)"
 		}
 		fmt.Fprintf(table, "%s\t%s\t%s\n", name, status, summary)
 	}

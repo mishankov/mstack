@@ -37,10 +37,10 @@ mstack --version
 
 Open your agent in the target Git project. It needs Git, the `mstack` CLI,
 and support for loading skills from `.agents/skills/`. Paste this to install
-the full catalog.
+the bundled skills.
 
 ```text
-Use the mstack CLI to install all skills in my current Git project. Run
+Use the mstack CLI to install the bundled skills in my current Git project. Run
 mstack install --all, then use mstack list to verify what was installed.
 Preserve existing skill files if the installer reports a collision or local
 edits, and tell me what blocked setup.
@@ -49,6 +49,19 @@ edits, and tell me what blocked setup.
 For a smaller install, tell your agent which skills you want. For example,
 `mstack install capture-issue pick-next-work` installs the backlog skills.
 mstack automatically includes any required dependencies.
+
+For UI work, install the `implement-ui` skill.
+
+```sh
+mstack install implement-ui
+```
+
+Both `mstack install implement-ui` and `mstack install --all` install the latest
+stable Impeccable release as a project dependency. To install it by itself, run
+`mstack install impeccable`. [Impeccable](https://github.com/pbakaus/impeccable)
+
+After reloading Codex, try `$impeccable critique the settings screen` for UX
+feedback or `$impeccable audit the settings screen` for implementation issues.
 
 <details>
 <summary>Install project skills from the terminal</summary>
@@ -100,7 +113,7 @@ own workflow.
 ## Manage skills
 
 Ask your agent to check for updates, install more skills, or remove a skill.
-The full catalog includes `manage-mstack-skills` to guide it through these tasks.
+The bundled catalog includes `manage-mstack-skills` to guide it through these tasks.
 
 Before implementation, mstack's implementation and delivery skills check once
 for updates to skills tracked in `.agents/mstack.lock.json`. The agent asks
@@ -112,23 +125,28 @@ add this instruction to your project's `AGENTS.md`.
 Automatically apply mstack skill updates before implementation.
 ```
 
-If you already use mstack, run `mstack update` once to install the skills that
-perform this check. If your agent loads skills at startup, start a new session
-to pick up the new instructions.
+If you already use mstack, upgrade the CLI and run `mstack update` in your
+project to install new dependencies, including Impeccable for `implement-ui`.
+If your agent loads skills at startup, start a new session to pick up the
+updated skills.
 
 | Command | What it does |
 | --- | --- |
 | `mstack list` | Show the available skills and their status in your project. |
 | `mstack install <skill>...` | Install the named skills and their dependencies. |
-| `mstack update --check` | Preview updates without applying them. |
+| `mstack install --all` | Install bundled skills and their required dependencies. |
+| `mstack update --check` | Preview bundled and upstream skill updates and new dependencies. |
 | `mstack update` | Update managed skills still in the catalog and report retired skills. |
 | `mstack update <skill>...` | Update the named skills and their dependencies. |
 | `mstack remove <skill>...` | Remove the named managed skills and their lock entries. Works offline. |
 
-The CLI installs complete skill folders from mstack's `main` branch into
-`.agents/skills/` at your project's Git root. If you share these folders through
-Git, commit `.agents/mstack.lock.json` alongside them to record their source
-commits and content fingerprints.
+The CLI installs complete skill folders into `.agents/skills/` at your project's
+Git root. Bundled skills come from mstack's `main` branch. External skills come
+from the latest stable release tags in their upstream repositories. Use
+`mstack update --check` to check for new upstream releases and `mstack update`
+to apply them. If you share skill folders through Git, commit
+`.agents/mstack.lock.json` alongside them to record installed releases,
+commits, and content fingerprints.
 
 An update can reinstall a removed skill if another installed skill still
 requires it.
@@ -153,9 +171,17 @@ requires it.
 Report setup problems or suggest a skill in
 [GitHub Issues](https://github.com/mishankov/mstack/issues).
 
-Edit skill sources in [`skills/`](skills/). For new skills, add the summary and
+Edit bundled skill sources in [`skills/`](skills/). Add the summary and
 required dependencies to [`catalog.json`](catalog.json). Keep resource links
 relative and include any helper scripts and agent metadata in the skill folder.
+Register upstream skills in [`external-skills.json`](external-skills.json) with
+their source `repository` (an HTTPS Git URL), `path` to the skill directory,
+and `tag_prefix` (for example, `skill-v`). mstack selects the highest stable
+`MAJOR.MINOR.PATCH` tag with that prefix. List any separate root-level license
+and notice files under `include` so they ship with the skill. Use `required_by`
+on an external entry to name the skills that install it as a dependency, and
+`requires` to declare its own dependencies.
+
 Run `go test -count=1 ./...` to validate the CLI and catalog before submitting a
 change. See [AGENTS.md](AGENTS.md) for the repository conventions.
 

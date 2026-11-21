@@ -181,7 +181,7 @@ func TestRollbackWhenNewCollisionAppears(t *testing.T) {
 		writeFile(t, filepath.Join(c.dir, name, "SKILL.md"), []byte(name))
 	}
 	ctx := context.Background()
-	plan, err := p.plan(ctx, c, []string{"first", "second"}, lock)
+	plan, err := p.plan(ctx, c, []string{"first", "second"}, lock, false)
 	if err != nil {
 		t.Fatal(err)
 	}

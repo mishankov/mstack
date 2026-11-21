@@ -25,6 +25,7 @@ Usage:
   mstack --version
 
 Skills are installed in .agents/skills/ at the Git root.
+--all selects the bundled skills and their dependencies.
 `
 
 type request struct {

@@ -46,7 +46,19 @@ func TestSkillCatalog(t *testing.T) {
 		t.Fatal(err)
 	}
 	c := catalog{dir: dir, skills: skills}
+	t.Run("Implement UI dependencies", func(t *testing.T) {
+		selected, err := c.selectSkills([]string{"implement-ui"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !slices.Contains(selected, "impeccable") {
+			t.Fatal("implement-ui requires Impeccable")
+		}
+	})
 	for _, name := range sortedKeys(skills) {
+		if skills[name].Source != nil {
+			continue
+		}
 		t.Run(name, func(t *testing.T) {
 			if err := validateSkillDocument(c, name); err != nil {
 				t.Fatal(err)

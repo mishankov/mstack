@@ -18,8 +18,9 @@ import (
 )
 
 type skill struct {
-	Summary  string   `json:"summary"`
-	Requires []string `json:"requires"`
+	Summary  string          `json:"summary"`
+	Requires []string        `json:"requires"`
+	Source   *externalSource `json:"source,omitempty"`
 }
 
 type catalog struct {
@@ -59,7 +60,16 @@ func fetchCatalog(ctx context.Context, temp, source string) (catalog, error) {
 		return catalog{}, err
 	}
 	revision := strings.TrimSpace(string(commit))
-	archive, err := git(ctx, repo, "-c", "core.autocrlf=false", "archive", "--format=tar", revision, "catalog.json", "skills/")
+	paths := []string{"catalog.json", "skills/"}
+	manifest, err := git(ctx, repo, "ls-tree", "--name-only", revision, "--", externalManifest)
+	if err != nil {
+		return catalog{}, err
+	}
+	if len(manifest) != 0 {
+		paths = append(paths, externalManifest)
+	}
+	args := append([]string{"-c", "core.autocrlf=false", "archive", "--format=tar", revision}, paths...)
+	archive, err := git(ctx, repo, args...)
 	if err != nil {
 		return catalog{}, err
 	}
@@ -85,7 +95,7 @@ func extractCatalog(dir string, archive *tar.Reader) error {
 		}
 		name := strings.TrimSuffix(header.Name, "/")
 		local, err := filepath.Localize(name)
-		if err != nil || (name != "catalog.json" && name != "skills" && !strings.HasPrefix(name, "skills/")) {
+		if err != nil || (name != "catalog.json" && name != externalManifest && name != "skills" && !strings.HasPrefix(name, "skills/")) {
 			return fmt.Errorf("invalid catalog path %q", header.Name)
 		}
 		dest := filepath.Join(dir, local)
@@ -122,14 +132,29 @@ func readCatalog(dir string) (map[string]skill, error) {
 	if err := json.Unmarshal(data, &skills); err != nil {
 		return nil, fmt.Errorf("read catalog.json: %w", err)
 	}
+	if skills == nil {
+		return nil, fmt.Errorf("catalog.json must contain a skill map")
+	}
+	for name, entry := range skills {
+		if entry.Source != nil {
+			return nil, fmt.Errorf("declare external skill %q in %s", name, externalManifest)
+		}
+	}
+	if err := readExternalSkills(dir, skills); err != nil {
+		return nil, err
+	}
 	entries, err := os.ReadDir(filepath.Join(dir, "skills"))
 	if err != nil {
 		return nil, err
 	}
 	for _, entry := range entries {
 		if entry.IsDir() {
-			if _, ok := skills[entry.Name()]; !ok {
+			skill, ok := skills[entry.Name()]
+			if !ok {
 				return nil, fmt.Errorf("skill %q is missing from catalog.json", entry.Name())
+			}
+			if skill.Source != nil {
+				return nil, fmt.Errorf("external skill %q also has a bundled folder", entry.Name())
 			}
 		}
 	}
@@ -138,9 +163,10 @@ func readCatalog(dir string) (map[string]skill, error) {
 		if !validName(name) || strings.TrimSpace(skill.Summary) == "" {
 			return nil, fmt.Errorf("invalid catalog entry for %q", name)
 		}
-		info, err := os.Stat(filepath.Join(dir, "skills", name, "SKILL.md"))
-		if err != nil || !info.Mode().IsRegular() {
-			return nil, fmt.Errorf("skill %q is missing a regular SKILL.md", name)
+		if skill.Source == nil {
+			if err := checkSkillFile(filepath.Join(dir, "skills", name)); err != nil {
+				return nil, fmt.Errorf("skill %q: %w", name, err)
+			}
 		}
 		for _, dependency := range skill.Requires {
 			if _, ok := skills[dependency]; !ok {
@@ -149,6 +175,14 @@ func readCatalog(dir string) (map[string]skill, error) {
 		}
 	}
 	return skills, nil
+}
+
+func checkSkillFile(dir string) error {
+	info, err := os.Stat(filepath.Join(dir, "SKILL.md"))
+	if err != nil || !info.Mode().IsRegular() {
+		return fmt.Errorf("missing a regular SKILL.md")
+	}
+	return nil
 }
 
 func (c catalog) selectSkills(roots []string) ([]string, error) {

@@ -62,6 +62,9 @@ Do not edit scoped files while review runs. Wait for the notice. Do not
 poll or start a second reviewer. Timeout, error, or no reply is not
 approval. On failure, cancel, verify stop, restart with the ledger.
 
+Include the UI check below for user-facing UI changes. Fill in absolute paths
+to the applicable references in the installed Impeccable skill.
+
 Round 1 brief (T3 children get no history):
 
 ```
@@ -69,9 +72,21 @@ Review only. Do not edit, commit, push, comment on PRs, or start subagents.
 Repo: <abs path> Base: <sha> Intent: <intent> Out of scope: <scope> Checks: <results>
 See: git diff <base> [-- <paths>]; git status --short (read untracked).
 Read surrounding code. Find bugs, broken callers, mismatch with intent.
-Skip style unless it hides a bug. Hold to the smallest change. Flag code,
-tests, or guards the intent does not need. Other paths, rare cases, small
-perf, extra compat: nits.
+Skip style unless it affects the intended UI or hides a bug. Hold to the
+smallest change. Flag code, tests, or guards the intent does not need. Other
+paths, rare cases, small perf, extra compat: nits.
+
+UI check (if applicable): <screen or flow, user task, design conventions, runtime evidence>.
+Apply the Impeccable audit checks read-only (reference/audit.md: <absolute path>).
+Check accessibility, keyboard behavior, responsive layout, and theming as applicable.
+For a new or substantially changed screen or flow, also apply the Impeccable
+critique rubric (reference/critique-rubric.md: <absolute path>).
+Verify the main keyboard flow with the project's harness. Check shortcut
+discoverability when primary commands change. If references or runtime evidence
+are missing, report the limitation and continue with available checks. Use the
+same findings format and severity rules for verified, in-scope UI problems.
+Treat visual preference as a nit.
+
 blocker = intended case wrong. should = real bug callers will hit, in intent. nit = rest.
 Reply:
 VERDICT: APPROVE or CHANGES

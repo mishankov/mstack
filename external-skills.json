@@ -1,7 +1,7 @@
 {
   "impeccable": {
     "summary": "Critique, audit, and refine user interfaces with Impeccable",
-    "required_by": ["implement-ui"],
+    "required_by": ["implement-ui", "review-loop"],
     "source": {
       "repository": "https://github.com/pbakaus/impeccable.git",
       "tag_prefix": "skill-v",

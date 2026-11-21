@@ -22,7 +22,7 @@
     "summary": "Check for skill updates and delegate independent implementation work"
   },
   "implement-ui": {
-    "summary": "Implement or change user interfaces on any platform"
+    "summary": "Design, review, and implement user interfaces on any platform"
   },
   "leaving-pr-comments": {
     "summary": "Format pull request comments written on the user's behalf"

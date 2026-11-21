@@ -1,17 +1,20 @@
 ---
 name: implement-ui
-description: Use when implementing or changing a user interface on any platform or framework, or when the user requests UI SDK.
+description: Use when designing, reviewing, implementing, or changing a product interface on any platform or framework, or when the user requests UI SDK.
 ---
 
 # Implement UI
 
-1. After implementation, run the updated UI, exercise the changed functionality,
-   and show screenshots of the result in your final response. Embed or attach
-   the screenshots so the user can see them directly.
+Use [Birman's UI/UX guidance](references/birman-ui-ux.md) when designing or
+reviewing product interfaces or changing their navigation, controls, layout,
+or interaction states.
 
-Capture the screens or states that demonstrate the change. Use the project's
-available UI runtime or test harness. If you can't capture the updated UI,
-report the specific blocker in the final response.
+## Verify implementation
+
+After implementation, run the updated UI and exercise the changed functionality
+using the project's available runtime or test harness. Capture the screens or
+states that demonstrate the change. Embed or attach the screenshots in your final
+response. If you can't capture the updated UI, report the specific blocker.
 
 ## Web UI
 

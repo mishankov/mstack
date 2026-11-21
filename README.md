@@ -99,7 +99,7 @@ own workflow.
 | --- | --- |
 | [capture-issue](skills/capture-issue/SKILL.md) | Record a request or follow-up in the project backlog. |
 | [pick-next-work](skills/pick-next-work/SKILL.md) | Compare backlog priorities and recommend what to work on next. |
-| [implement](skills/implement/SKILL.md) | Check for skill updates and delegate independent implementation work. |
+| [implement](skills/implement/SKILL.md) | Apply skill updates by default and delegate independent implementation work. |
 | [full-stop](skills/full-stop/SKILL.md) | Implement a change and leave the reviewed PR ready to merge. |
 | [full-send](skills/full-send/SKILL.md) | Implement a change and carry the PR through review and merge. |
 | [review-loop](skills/review-loop/SKILL.md) | Review a change with Astra and resolve findings in a bounded loop. |
@@ -115,14 +115,13 @@ own workflow.
 Ask your agent to check for updates, install more skills, or remove a skill.
 The bundled catalog includes `manage-mstack-skills` to guide it through these tasks.
 
-Before implementation, mstack's implementation and delivery skills check once
-for updates to skills tracked in `.agents/mstack.lock.json`. The agent asks
-before applying updates and defers them in unattended runs such as `full send`
-and `full stop`. To allow automatic updates, including during unattended runs,
-add this instruction to your project's `AGENTS.md`.
+Before implementation, the agent checks once per project per task for updates to
+skills tracked in `.agents/mstack.lock.json` and applies them by default,
+including during `full send` and `full stop`. To defer updates, tell the agent
+in your request or add this instruction to your project's `AGENTS.md`.
 
 ```markdown
-Automatically apply mstack skill updates before implementation.
+Defer mstack skill updates during implementation.
 ```
 
 If you already use mstack, upgrade the CLI and run `mstack update` in your

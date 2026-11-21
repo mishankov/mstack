@@ -19,7 +19,7 @@
     "requires": ["full-send"]
   },
   "implement": {
-    "summary": "Check for skill updates and delegate independent implementation work"
+    "summary": "Apply skill updates by default and delegate independent implementation work"
   },
   "implement-ui": {
     "summary": "Design, review, and implement user interfaces on any platform"

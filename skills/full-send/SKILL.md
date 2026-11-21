@@ -45,9 +45,8 @@ one appears.
 1. **Finish the change.** Complete the goal from the user's request with the
    smallest change that works. Fix the case that happened, not every case
    that could. If you are on the default branch, create a branch first. When
-   starting implementation, follow the update-check step in
-   [implement](../implement/SKILL.md#check-for-skill-updates). Treat this
-   workflow as unattended for that step.
+   starting implementation, follow the skill update step in
+   [implement](../implement/SKILL.md#check-for-skill-updates).
 2. **Prove it.** Get proof for every change you made. See "Proof".
 3. **Get feedback.** Use [review-loop](../review-loop/SKILL.md) to verify changes.
 4. **File the PR** with [file-pr](../file-pr/SKILL.md). Rebase onto the latest

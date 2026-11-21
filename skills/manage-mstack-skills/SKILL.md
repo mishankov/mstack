@@ -19,8 +19,10 @@ Run skill commands from the intended project's Git checkout.
 
 - Use `mstack list` to see available and installed skills.
 - Use `mstack install <skill>...` for the requested skills. The CLI installs
-  their required dependencies. Use `mstack install --all` for the full catalog.
-- Use `mstack update --check` to check for updates without applying them.
+  their required dependencies, including Impeccable for `implement-ui`. Use
+  `mstack install --all` for bundled skills and their dependencies.
+- Use `mstack update --check` to preview new dependencies and updates,
+  including new upstream releases for external skills.
 - Use `mstack update <skill>...` to update named skills, or `mstack update` to
   update all managed skills still available upstream. Bulk updates report and
   skip retired skills.

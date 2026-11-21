@@ -1,0 +1,12 @@
+{
+  "impeccable": {
+    "summary": "Critique, audit, and refine user interfaces with Impeccable",
+    "required_by": ["implement-ui"],
+    "source": {
+      "repository": "https://github.com/pbakaus/impeccable.git",
+      "tag_prefix": "skill-v",
+      "path": ".agents/skills/impeccable",
+      "include": ["LICENSE", "NOTICE.md"]
+    }
+  }
+}

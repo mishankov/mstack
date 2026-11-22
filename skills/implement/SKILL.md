@@ -21,12 +21,14 @@ has no `.agents/mstack.lock.json` or if the user or the project's `AGENTS.md`
 directs you to skip it. Otherwise run `mstack update --check` from that root
 with a short execution timeout.
 
-- If the check succeeds with no updates or dependencies to install, continue.
-- If the check succeeds and finds updates or missing dependencies, run
-  `mstack update`, including in unattended runs, unless the user or the
-  project's `AGENTS.md` directs you to defer updates. Use a short timeout that
-  allows graceful cancellation and report the result. When deferring updates,
-  report the deferred changes and continue with the installed skills.
+- If the check succeeds and reports skill updates, dependencies to install, or
+  `Skill attributes need updating: .agents/.gitattributes`, run `mstack update`,
+  including in unattended runs, unless the user or the project's `AGENTS.md`
+  directs you to defer updates. The attributes message can appear alongside
+  `Already current`. Use a short timeout that allows graceful cancellation and
+  report the result. When deferring updates, report the deferred changes and
+  continue with the installed skills.
+- If the check succeeds and reports no pending changes, continue.
 - If mstack is unavailable or either command returns a nonzero exit or times
   out, report the issue and any conflicting paths. Preserve local edits and
   continue with the installed skills. If the check fails, report any changes

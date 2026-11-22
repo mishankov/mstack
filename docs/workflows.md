@@ -45,7 +45,7 @@ Source: [`skills/implement/SKILL.md`](../skills/implement/SKILL.md)
 Handles implementation kickoff and parallelization:
 
 1. **Confirm implementation intent:** Does not edit files or delegate during feasibility questions or design discussions; waits for a clear request to implement, then proceeds without re-confirming.
-2. **Check for skill updates:** Once per project per task (when `.agents/mstack.lock.json` exists), runs `mstack update --check` and applies `mstack update` by default before editing code.
+2. **Check for skill updates.** Once per project per task (when `.agents/mstack.lock.json` exists), runs `mstack update --check` before editing code. By default, it runs `mstack update` when the check reports skill updates, missing dependencies, or pending language attribute changes.
    - To **defer** applying updates while still reporting them, say so in your prompt or add `Defer mstack skill updates during implementation.` to your project's `AGENTS.md`.
    - To **skip** the check entirely, say so in your prompt or add `Skip mstack skill update checks during implementation.` to your project's `AGENTS.md`.
    - If `mstack` is missing, times out, or hits local conflicts, the agent reports the issue, preserves local edits, and continues with installed skills.

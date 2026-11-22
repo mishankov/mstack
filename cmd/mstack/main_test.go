@@ -101,6 +101,45 @@ func TestProjectSkillLifecycle(t *testing.T) {
 	readFile(t, filepath.Join(p.skills, "full-stop", "agents", "openai.yaml"))
 	command("", "install", "review-group")
 
+	attributes := filepath.Join(p.agents, attributesName)
+	if err := os.Remove(attributes); err != nil {
+		t.Fatal(err)
+	}
+	before := readFile(t, p.lock)
+	const attributesNotice = "Skill attributes need updating: .agents/.gitattributes"
+	if out := command("", "update", "--check"); !strings.Contains(out, "Already current") || !strings.Contains(out, attributesNotice) {
+		t.Fatalf("check did not report missing attributes for current skills:\n%s", out)
+	}
+	assertMissing(t, attributes)
+
+	customAttributes := []byte("*.md text\r\n")
+	staleAttributes := append(bytes.Clone(customAttributes), []byte(attributesStart+"\r\nskills/old/** linguist-vendored\r\n"+attributesEnd+"\r\n")...)
+	writeFile(t, attributes, staleAttributes)
+	if out := command("", "update", "--check", "implement"); !strings.Contains(out, attributesNotice) {
+		t.Fatalf("scoped check did not report stale attributes:\n%s", out)
+	}
+	if !bytes.Equal(readFile(t, attributes), staleAttributes) || !bytes.Equal(readFile(t, p.lock), before) {
+		t.Fatal("--check changed the attributes or lockfile")
+	}
+	command("", "update")
+	if !bytes.Equal(readFile(t, p.lock), before) {
+		t.Fatal("backfilling attributes changed the lockfile")
+	}
+	if out := command("", "update", "--check"); strings.Contains(out, attributesNotice) {
+		t.Fatalf("check reported an update after attributes were fixed:\n%s", out)
+	}
+	managedAttributes := readFile(t, attributes)
+	if !bytes.HasPrefix(managedAttributes, customAttributes) || !bytes.Contains(managedAttributes, []byte("skills/babysit-pr/** linguist-vendored\r\n")) || bytes.Contains(managedAttributes, []byte("skills/old/")) {
+		t.Fatalf("expected generated rules after the custom CRLF line, got %q", managedAttributes)
+	}
+	const managedScript = ".agents/skills/babysit-pr/scripts/pr-wait"
+	const unmanagedScript = ".agents/skills/local/scripts/main.js"
+	const appScript = "web/main.js"
+	got, err := git(ctx, dest, "check-attr", "linguist-vendored", "--", managedScript, unmanagedScript, appScript)
+	if want := managedScript + ": linguist-vendored: set\n" + unmanagedScript + ": linguist-vendored: unspecified\n" + appScript + ": linguist-vendored: unspecified\n"; err != nil || string(got) != want {
+		t.Fatalf("Git attributes = %q, want %q: %v", got, want, err)
+	}
+
 	var entries map[string]skill
 	if err := json.Unmarshal(manifest, &entries); err != nil {
 		t.Fatal(err)
@@ -124,7 +163,7 @@ func TestProjectSkillLifecycle(t *testing.T) {
 	writeFile(t, filepath.Join(source, "skills", reviewGroup), []byte("New review guidance.\n"))
 	second := commitRepo(t, source)
 
-	before := readFile(t, p.lock)
+	before = readFile(t, p.lock)
 	if out := command("", "update", "full-stop", "--check"); !strings.Contains(out, "babysit-pr, full-send") || !strings.Contains(out, "capture-issue") || strings.Contains(out, "review-group") {
 		t.Fatalf("unexpected update check:\n%s", out)
 	}
@@ -167,6 +206,10 @@ func TestProjectSkillLifecycle(t *testing.T) {
 		t.Fatalf("full install recorded %d skills, want %d: %v", len(lock.Skills), len(entries), err)
 	}
 	readFile(t, filepath.Join(p.skills, "manage-mstack-skills", "SKILL.md"))
+	command("", append([]string{"remove"}, sortedKeys(lock.Skills)...)...)
+	if got := readFile(t, attributes); !bytes.Equal(got, customAttributes) {
+		t.Fatalf("removing all skills left %q, want %q", got, customAttributes)
+	}
 	assertMissing(t, p.transaction)
 }
 
@@ -201,9 +244,53 @@ func TestRollbackWhenNewCollisionAppears(t *testing.T) {
 	}
 	assertMissing(t, filepath.Join(p.skills, "first"))
 	assertMissing(t, p.lock)
+	assertMissing(t, filepath.Join(p.agents, attributesName))
 	assertMissing(t, p.transaction)
 	if got := string(readFile(t, collision)); got != "local" {
 		t.Fatalf("overwrote the conflicting skill: %q", got)
+	}
+}
+
+func TestRollbackAttributesWhenLockReplacementFails(t *testing.T) {
+	p := openProject(t.TempDir())
+	lock, err := p.readLock()
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := catalog{dir: t.TempDir(), revision: "test-revision"}
+	writeFile(t, filepath.Join(c.dir, "demo", "SKILL.md"), []byte("demo"))
+	ctx := context.Background()
+	plan, err := p.plan(ctx, c, []string{"demo"}, lock, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	attributes := filepath.Join(p.agents, attributesName)
+	custom := []byte("*.md text\n")
+	writeFile(t, attributes, custom)
+	if err := os.Mkdir(p.lock, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := p.withWriter(func() error { return p.apply(ctx, c, plan, lock) }); err == nil {
+		t.Fatal("expected replacing the lockfile to fail")
+	}
+	if got := readFile(t, attributes); !bytes.Equal(got, custom) {
+		t.Fatalf("rollback left attributes %q, want %q", got, custom)
+	}
+	assertMissing(t, filepath.Join(p.skills, "demo"))
+	assertMissing(t, p.transaction)
+}
+
+func TestAttributesDetectEditsAfterPlanning(t *testing.T) {
+	path := filepath.Join(t.TempDir(), attributesName)
+	writeFile(t, path, []byte("*.md text\n"))
+	change, err := planAttributes(path, []string{"demo"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	edited := []byte("*.md text\n*.txt -text\n")
+	writeFile(t, path, edited)
+	if err := change.validate(path); err == nil || !strings.Contains(err.Error(), "local changes") {
+		t.Fatalf("expected an attributes conflict, got %v", err)
 	}
 }
 
@@ -340,6 +427,22 @@ func TestRetiredSkillLifecycle(t *testing.T) {
 	lock, err := p.readLock()
 	if err != nil || len(lock.Skills) != 0 {
 		t.Fatalf("expected empty lock after removal, got %+v, %v", lock, err)
+	}
+	attributes := filepath.Join(p.agents, attributesName)
+	assertMissing(t, attributes)
+	const custom = "*.md text\n"
+	// An older mstack can remove the last skill without removing its rule.
+	stale := custom + attributesStart + "\nskills/retired/** linguist-vendored\n" + attributesEnd + "\n"
+	writeFile(t, attributes, []byte(stale))
+	if out := command(offline, "", "update", "--check"); !strings.Contains(out, "Skill attributes need updating: .agents/.gitattributes") {
+		t.Fatalf("check did not report leftover attributes with an empty lockfile:\n%s", out)
+	}
+	if got := string(readFile(t, attributes)); got != stale {
+		t.Fatalf("read-only check changed the attributes: %q", got)
+	}
+	command(offline, "", "update")
+	if got := string(readFile(t, attributes)); got != custom {
+		t.Fatalf("update left %q, want %q", got, custom)
 	}
 	assertMissing(t, p.transaction)
 }

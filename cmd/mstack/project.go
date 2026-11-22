@@ -285,9 +285,6 @@ func (p project) remove(ctx context.Context, names []string, lock lockFile, out 
 			return fmt.Errorf("skill %q is not managed by mstack", name)
 		}
 	}
-	if err := ctx.Err(); err != nil {
-		return err
-	}
 	if err := p.apply(ctx, catalog{}, changes{remove: names}, lock); err != nil {
 		return err
 	}
@@ -311,7 +308,10 @@ func (p project) execute(ctx context.Context, source string, r request, out io.W
 		}
 		if len(names) == 0 {
 			fmt.Fprintln(out, "No mstack-managed skills installed.")
-			return nil
+			if r.check {
+				return p.checkAttributes(nil, out)
+			}
+			return p.apply(ctx, catalog{}, changes{}, lock)
 		}
 	}
 	temp, err := os.MkdirTemp("", "mstack-catalog-")
@@ -355,18 +355,15 @@ func (p project) execute(ctx context.Context, source string, r request, out io.W
 	plan, err := p.plan(ctx, c, names, lock, r.check)
 	if r.check {
 		plan.report(out, "Updates available", "Dependencies to install")
-		return err
+		managed := append(sortedKeys(lock.Skills), plan.install...)
+		slices.Sort(managed)
+		return errors.Join(err, p.checkAttributes(managed, out))
 	}
 	if err != nil {
 		return err
 	}
-	if len(plan.records) > 0 {
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-		if err := p.apply(ctx, c, plan, lock); err != nil {
-			return err
-		}
+	if err := p.apply(ctx, c, plan, lock); err != nil {
+		return err
 	}
 	plan.report(out, "Updated", "Installed")
 	return nil

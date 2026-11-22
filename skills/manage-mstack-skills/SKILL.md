@@ -21,8 +21,8 @@ Run skill commands from the intended project's Git checkout.
 - Use `mstack install <skill>...` for the requested skills. The CLI installs
   their required dependencies, including Impeccable for `implement-ui`. Use
   `mstack install --all` for bundled skills and their dependencies.
-- Use `mstack update --check` to preview new dependencies and updates,
-  including new upstream releases for external skills.
+- Use `mstack update --check` to preview skill updates, including new upstream
+  releases, plus missing dependencies and changes to skill language attributes.
 - Use `mstack update <skill>...` to update named skills, or `mstack update` to
   update all managed skills still available upstream. Bulk updates report and
   skip retired skills.

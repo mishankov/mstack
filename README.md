@@ -117,7 +117,7 @@ Most users interact with `mstack` through **`full-stop`** and **`full-send`**. T
 | `mstack list` | Show catalog skills (bundled and external) and their local status. |
 | `mstack install <skill>...` | Install named skills and all transitive dependencies. |
 | `mstack install --all` | Install all bundled skills and their required dependencies. |
-| `mstack update --check [<skill>...]` | Dry-run check for bundled updates, new upstream releases, and missing dependencies. |
+| `mstack update --check [<skill>...]` | Dry-run check for skill updates, missing dependencies, and pending language attribute changes. |
 | `mstack update [<skill>...]` | Update managed skills (all still in catalog, or only named skills + their dependencies). |
 | `mstack remove <skill>...` | Remove named managed skills and their lock entries (works offline). |
 | `mstack --version` | Print the installed CLI version. |
@@ -126,7 +126,7 @@ Full flag semantics, lockfile format, safety guarantees, and recovery steps are 
 
 ### Automatic updates during implementation
 
-When a project has `.agents/mstack.lock.json`, the `implement` skill (also invoked by `full-send` and `full-stop`) checks once per project per task via `mstack update --check` and applies updates automatically before editing code.
+When a project has `.agents/mstack.lock.json`, the `implement` skill (also invoked by `full-send` and `full-stop`) runs `mstack update --check` once per project per task. By default it applies pending skill, dependency, and language attribute changes before editing code.
 
 To keep the check visible without auto-applying, tell your agent or add this line to your project's `AGENTS.md`:
 
@@ -140,7 +140,7 @@ To skip the update check altogether, add:
 Skip mstack skill update checks during implementation.
 ```
 
-If you share installed skills via Git, commit `.agents/mstack.lock.json` alongside `.agents/skills/` so teammates and agents share the same pinned commits, releases, and fingerprints.
+If you share installed skills via Git, commit `.agents/mstack.lock.json` and `.agents/.gitattributes` alongside `.agents/skills/`. The lockfile records the exact installed versions, and the attributes file keeps all `mstack`-managed skills out of GitHub's language statistics. Run `mstack update` in an existing installation to create the rules. [GitHub language statistics](docs/cli.md#github-language-statistics)
 
 ## Documentation
 

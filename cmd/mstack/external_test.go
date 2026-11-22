@@ -176,7 +176,7 @@ func TestExternalSkillLifecycle(t *testing.T) {
 	assertMissing(t, installed)
 	assertContents(p.lock, string(before))
 	rewriteRepository(upstream)
-	if out := command(source, "", "update", "--check", "consumer"); !strings.Contains(out, "Dependencies to install (1): extern") {
+	if out := command(source, "", "update", "--check", "consumer"); !strings.Contains(out, "Dependencies to install (1): extern") || !strings.Contains(out, "Skill attributes need updating: .agents/.gitattributes") {
 		t.Fatalf("update check omitted the missing dependency:\n%s", out)
 	}
 	assertMissing(t, installed)
@@ -184,5 +184,9 @@ func TestExternalSkillLifecycle(t *testing.T) {
 	command(source, "", "update", "consumer")
 	assertContents(filepath.Join(p.skills, consumer), updatedConsumer)
 	assertRelease(secondRelease, second)
+	attributes := readFile(t, filepath.Join(p.agents, attributesName))
+	if !bytes.Contains(attributes, []byte("skills/extern/** linguist-vendored\n")) {
+		t.Fatalf("attributes omit the installed external dependency: %s", attributes)
+	}
 	assertMissing(t, p.transaction)
 }

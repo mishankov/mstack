@@ -67,7 +67,7 @@ Updates managed skills and installs any newly added dependencies.
 
 - `mstack update` updates every managed skill that still exists in the upstream catalog. If a managed skill was removed upstream, `mstack` reports `Retired upstream (<n>): ...`, skips it, and continues updating the remaining skills.
 - `mstack update <skill>...` updates only the named managed skills and their transitive dependencies. Naming an unmanaged skill fails and suggests `mstack install <skill>`. Naming a retired skill fails because it is unavailable upstream.
-- `mstack update --check [<skill>...]` previews what would change (`Updates available`, `Dependencies to install`, `Already current`, and any local conflicts) without modifying `.agents/skills/` or `.agents/mstack.lock.json`.
+- `mstack update --check [<skill>...]` is read-only and reports `Updates available`, `Dependencies to install`, `Already current`, pending skill attribute changes, and any local conflicts.
 - If a previously removed skill is still required by another installed skill, `mstack update` reinstalls it as a dependency.
 
 ### `mstack remove <skill>...`
@@ -126,7 +126,15 @@ Every managed project stores lock metadata at `.agents/mstack.lock.json`:
 | `release` | *(External skills only)* Selected upstream release tag. |
 | `source` | *(External skills only)* Upstream repository URL, subdirectory path, and included root files. |
 
-**Should you commit `.agents/mstack.lock.json`?** Yes—whenever you commit `.agents/skills/` to your project repository, commit `.agents/mstack.lock.json` alongside it so teammates and agents verify against the exact same installed versions and fingerprints.
+Commit `.agents/mstack.lock.json` alongside `.agents/skills/` so teammates and agents can verify that they have the same installed versions and fingerprints.
+
+## GitHub language statistics
+
+`mstack install` and `mstack update` maintain a managed block in `.agents/.gitattributes`, even when all selected skills are already current. The block contains one `skills/<name>/** linguist-vendored` rule for each skill in the project's lockfile, including bundled and external skills, dependencies, and locally installed skills that have been retired upstream.
+
+`mstack remove` drops the rules for the removed skills and deletes the file if the managed block was its only content. Keep custom rules outside the managed block so `mstack` can preserve them.
+
+If the block is missing or out of date, `mstack update --check` prints `Skill attributes need updating: .agents/.gitattributes`. This can appear alongside `Already current`. Run `mstack update` to apply the changes. Commit `.agents/.gitattributes` with the skills and lockfile. GitHub recalculates its language statistics asynchronously after the change reaches the default branch. [How GitHub Linguist works](https://github.com/github-linguist/linguist/blob/main/docs/how-linguist-works.md)
 
 ## Safety guarantees
 
@@ -142,10 +150,10 @@ If your repository checks out text files with CRLF line endings (for example, `c
 
 All write commands (`install`, `update`, `remove`) acquire an exclusive transaction directory at `.agents/.mstack-write/`:
 
-1. Staged skills are copied into `.agents/.mstack-write/new/` and re-fingerprinted to confirm contents and executable permissions survived the copy.
-2. The next lockfile is written to `.agents/.mstack-write/mstack.lock.json`.
-3. Local targets are re-validated right before swapping.
-4. Existing folders being replaced or removed are moved to `.agents/.mstack-write/old/`, new folders are moved into `.agents/skills/`, and the staged lockfile is atomically renamed over `.agents/mstack.lock.json`.
+1. Changes to the lockfile and `.agents/.gitattributes` are staged in `.agents/.mstack-write/`.
+2. Staged skills are copied into `.agents/.mstack-write/new/` and re-fingerprinted to confirm contents and executable permissions survived the copy.
+3. Local skill targets and the attributes file, when changing, are revalidated right before swapping.
+4. Existing folders being replaced or removed and the previous `.gitattributes` file, when changed, are moved to `.agents/.mstack-write/old/`. The staged skills and attributes are moved into place, then the staged lockfile is atomically renamed over `.agents/mstack.lock.json` when it changes.
 5. If any step fails, `mstack` attempts to reverse every completed rename in reverse order. If rollback succeeds, it removes `.agents/.mstack-write/`; if any rollback rename fails, it retains `.agents/.mstack-write/` (including backups in `old/`) for manual recovery.
 
 Concurrent `mstack` invocations—including read-only `list` and `update --check`—refuse to run while `.agents/.mstack-write/` exists.
@@ -158,7 +166,7 @@ Concurrent `mstack` invocations—including read-only `list` and `update --check
 | **`unmanaged skill already exists at ...`** | A folder already exists in `.agents/skills/<name>` outside `mstack`. Back up, rename, or remove that folder before running `mstack install`. |
 | **`local changes at ...`** | Files inside a managed skill differ from the recorded fingerprint. Review your edits with `git diff .agents/skills/<name>`, revert or back them up, then retry. |
 | **`managed skill is missing at ...`** | The skill is listed in `.agents/mstack.lock.json` but its folder was deleted. Run `mstack remove <skill>` to clear the stale lock entry, then `mstack install <skill>` if you still want it. |
-| **`another mstack write is in progress or was interrupted`** | Either another `mstack` process is running, or a previous write was interrupted / failed rollback. Confirm no `mstack` writer is still running, then reconcile `.agents/skills/` against `.agents/mstack.lock.json`—restoring originals from `.agents/.mstack-write/old/` where needed—before deleting `.agents/.mstack-write/` and retrying. |
+| **`another mstack write is in progress or was interrupted`** | Either another `mstack` process is running, or a previous write was interrupted or failed to roll back. Confirm the writer has stopped. Reconcile `.agents/skills/` and `.agents/.gitattributes` against `.agents/mstack.lock.json`. Restore originals from `.agents/.mstack-write/old/` as needed before deleting `.agents/.mstack-write/` and retrying. |
 
 ## Related docs
 

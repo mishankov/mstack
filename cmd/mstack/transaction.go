@@ -12,7 +12,7 @@ import (
 	"slices"
 )
 
-var errRecoveryRequired = errors.New("could not roll back every skill move")
+var errRecoveryRequired = errors.New("could not roll back every file move")
 
 func (p project) busy() error {
 	return fmt.Errorf("another mstack write is in progress or was interrupted (see %s)", p.transaction)
@@ -58,6 +58,45 @@ func (p project) withWriter(execute func() error) (result error) {
 }
 
 func (p project) apply(ctx context.Context, c catalog, plan changes, lock lockFile) (result error) {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	nextLock := lock
+	writeLock := len(plan.records) > 0 || len(plan.remove) > 0
+	stagedLock := filepath.Join(p.transaction, "mstack.lock.json")
+	if writeLock {
+		nextLock.Skills = maps.Clone(lock.Skills)
+		for name, record := range plan.records {
+			nextLock.Skills[name] = record
+		}
+		for _, name := range plan.remove {
+			delete(nextLock.Skills, name)
+		}
+		data, err := json.MarshalIndent(nextLock, "", "  ")
+		if err != nil {
+			return err
+		}
+		if err := os.WriteFile(stagedLock, append(data, '\n'), 0o644); err != nil {
+			return err
+		}
+	}
+
+	attributesPath := filepath.Join(p.agents, attributesName)
+	stagedAttributes := filepath.Join(p.transaction, attributesName)
+	attributes, err := planAttributes(attributesPath, sortedKeys(nextLock.Skills))
+	if err != nil {
+		return err
+	}
+	if !writeLock && !attributes.pending() {
+		return nil
+	}
+	writeAttributes := attributes.pending() && attributes.updated != ""
+	if writeAttributes {
+		if err := attributes.stage(stagedAttributes); err != nil {
+			return err
+		}
+	}
+
 	staged := filepath.Join(p.transaction, "new")
 	backup := filepath.Join(p.transaction, "old")
 	for _, dir := range []string{staged, backup} {
@@ -79,22 +118,6 @@ func (p project) apply(ctx context.Context, c catalog, plan changes, lock lockFi
 			return fmt.Errorf("copying skill %q changed its contents or executable permissions", name)
 		}
 	}
-	nextLock := lock
-	nextLock.Skills = maps.Clone(lock.Skills)
-	for name, record := range plan.records {
-		nextLock.Skills[name] = record
-	}
-	for _, name := range plan.remove {
-		delete(nextLock.Skills, name)
-	}
-	data, err := json.MarshalIndent(nextLock, "", "  ")
-	if err != nil {
-		return err
-	}
-	stagedLock := filepath.Join(p.transaction, "mstack.lock.json")
-	if err := os.WriteFile(stagedLock, append(data, '\n'), 0o644); err != nil {
-		return err
-	}
 	if len(plan.install) > 0 {
 		if err := os.MkdirAll(p.skills, 0o755); err != nil {
 			return err
@@ -110,7 +133,7 @@ func (p project) apply(ctx context.Context, c catalog, plan changes, lock lockFi
 		moved = append(moved, move{from, to})
 		return nil
 	}
-	// Keep the previous lock and skill folders available until every move succeeds.
+	// Keep the previous project state available until every move succeeds.
 	defer func() {
 		if result == nil {
 			return
@@ -153,5 +176,23 @@ func (p project) apply(ctx context.Context, c catalog, plan changes, lock lockFi
 			return err
 		}
 	}
-	return os.Rename(stagedLock, p.lock)
+	if attributes.pending() {
+		if err := attributes.validate(attributesPath); err != nil {
+			return err
+		}
+		if attributes.info != nil {
+			if err := rename(attributesPath, filepath.Join(backup, attributesName)); err != nil {
+				return err
+			}
+		}
+		if writeAttributes {
+			if err := rename(stagedAttributes, attributesPath); err != nil {
+				return err
+			}
+		}
+	}
+	if writeLock {
+		return os.Rename(stagedLock, p.lock)
+	}
+	return nil
 }

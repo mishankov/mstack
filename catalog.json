@@ -34,7 +34,8 @@
     "summary": "Compare priorities and choose the next backlog item"
   },
   "review-group": {
-    "summary": "Request review from three providers' models"
+    "summary": "Run a bounded review with Astra and Gemini Neon in parallel",
+    "requires": ["review-loop"]
   },
   "review-loop": {
     "summary": "Review a change with Astra through a bounded findings loop"

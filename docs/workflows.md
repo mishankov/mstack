@@ -135,10 +135,11 @@ Use when designing, reviewing, implementing, or updating a user interface on any
 ### Multi-provider review: `review-group`
 Source: [`skills/review-group/SKILL.md`](../skills/review-group/SKILL.md)
 
-Use `"review group"` when you want consensus feedback across three different model providers instead of a single-reviewer `review-loop`:
+`review-group` runs the [review loop](#review-loop) with GPT Astra and Gemini 4 Neon in parallel, both at high reasoning effort by default. You can override the reviewers or effort.
 
-- Cleans up known issues and PR comments first, then starts three read-only review delegates in parallel at high reasoning effort (e.g., Claude Opus, GPT Sol, Gemini Pro—or user-specified members). Reports if three providers cannot be reached rather than silently substituting.
-- Collects scores out of 10 per round, evaluates findings as results arrive (without editing files while a delegate is still reading the same checkout), guards against scope creep, and records a `## Review group results` table in the PR description (or final reply if there is no PR).
+- The group uses the same scoped diff, finding ledger, UI checks, three-round default, and bounded extension as `review-loop`. Approval requires each required reviewer to approve the current behavior diff and all blockers and shoulds to be resolved.
+- The lead verifies findings as they arrive and applies fixes after the required reviews finish. The `Review group results` table records each reviewer's score out of 10 per round in the PR description or, for local work, in the final reply.
+- Installing `review-group` also installs `review-loop` and its Impeccable dependency.
 
 ### Skill management: `manage-mstack-skills`
 Source: [`skills/manage-mstack-skills/SKILL.md`](../skills/manage-mstack-skills/SKILL.md)

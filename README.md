@@ -103,10 +103,10 @@ Most users interact with `mstack` through **`full-stop`** and **`full-send`**. T
 | [`pick-next-work`](skills/pick-next-work/SKILL.md) | Inspect backlog candidates and recommend the next slice of work. | — |
 | [`implement-ui`](skills/implement-ui/SKILL.md) | Design, review, implement, and visually verify interfaces across platforms (includes Birman's UI/UX principles and Vercel UI SDK guidance). | `impeccable` |
 | [`impeccable`](https://github.com/pbakaus/impeccable) *(external)* | Critique UX, audit accessibility/responsiveness, and refine visual polish. Installed from latest stable upstream release (`skill-v*`). | — |
-| [`review-group`](skills/review-group/SKILL.md) | Gather parallel scored code reviews from flagship models across three providers. | — |
+| [`review-group`](skills/review-group/SKILL.md) | Run a bounded, scored review with GPT Astra and Gemini 4 Neon at high effort. | `review-loop` |
 | [`manage-mstack-skills`](skills/manage-mstack-skills/SKILL.md) | Guide an agent to install, update, or remove mstack skills and upgrade the CLI. | — |
 
-> **Note on dependencies:** `mstack install` resolves transitive dependencies automatically. Installing `full-stop`, `full-send`, `review-loop`, `implement-ui`, or `--all` installs `impeccable` from its latest stable upstream release. You can also install `impeccable` standalone with `mstack install impeccable`.
+> **Note on dependencies:** `mstack install` resolves transitive dependencies automatically. Installing `full-stop`, `full-send`, `review-group`, `review-loop`, `implement-ui`, or `--all` installs `impeccable` from its latest stable upstream release. You can also install `impeccable` standalone with `mstack install impeccable`.
 
 ## Managing skills & updates
 

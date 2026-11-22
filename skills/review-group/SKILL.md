@@ -5,58 +5,45 @@ description: Use when the user says "review group".
 
 # Review group
 
-Before an audit, address outstanding PR comments, fix known issues, and run
-relevant checks. Give the review group the updated implementation; do not defer known
-fixes until reviews return. If the user wants to discard the implementation
-and explore new ideas, skip fixes to code being replaced.
+Use the latest OpenAI GPT Astra and Google Gemini 4 Neon, both at high reasoning
+effort. Honor explicit reviewer and effort overrides. Resolve the full reviewer
+set before starting, and report any unavailable required model or effort.
 
-Bring in three delegates to help with the user's request, usually for review
-or feedback. Use one strong model from each of three different providers, at
-high reasoning effort. If the user's instructions name review group members, use
-those. Otherwise pick the latest flagship model from each provider, for
-example Claude Opus, GPT Sol, and Gemini Pro.
+Use [review-loop](../review-loop/SKILL.md) to resolve and start delegates. Start
+one read-only delegate per reviewer in parallel and give them the same brief.
+For a code review, also follow its scoping, checks, round budget, finding
+severity, and approval rules. Before round 1, fix known issues and address
+outstanding in-scope PR comments. When the user is exploring a replacement,
+skip fixes to code being replaced.
 
-In T3 Code, use `orchestrator_capabilities` to resolve the models, then
-`delegate_task` to start one delegate per model in parallel. Elsewhere, use
-the harness's subagent tools. If you cannot reach three providers, or a named
-member is unavailable, report it instead of substituting.
+- For code review, ask each delegate for a verdict, findings, and a score out
+  of 10 per round.
+- Verify findings as they arrive. Track findings by reviewer and ID, and
+  resolve duplicates together. Wait for all required reviewers before applying
+  fixes or deciding the round's outcome.
+- If the user marks a reviewer as non-blocking, use available feedback without
+  counting it toward approval or recording a score. Cancel an outstanding
+  non-blocking review before editing the checkout it reads or ending the task.
 
-Give each delegate the request and relevant context. For review or feedback,
-keep their work read-only. Collect their responses and summarize the useful
-findings, disagreements, and recommended next steps.
+For feedback without a code diff, give the delegates the same request and
+context, then summarize their findings, disagreements, and next steps.
 
-Do not wait idle. When a result arrives, check its findings against the code
-at once and decide what to fix while the other delegates run. Do not edit
-files while a delegate still reviews the same checkout. If the user's
-instructions mark a delegate as non-blocking, do not wait for it; treat a
-late result as feedback and do not record its score.
+## Report results
 
-For a code review, ask each delegate for a score out of 10.
-Count each full review pass as one round.
-A fresh review after fixes starts a new round.
-
-If the work ends in a pull request, put the results in the PR description.
-Put this section before the model and harness line at the end:
+For code reviews, count each pass by the reviewer set as one round. Use the
+section below in place of the single-reviewer PR line. If the work ends in a
+PR, put it in the description before the model and harness line. For local
+work, put it in the final reply. Report the actual verdict. Record `no score`
+for a missing score. Scores are informational.
 
 ```markdown
 ## Review group results
 
 Rounds: 2
+Verdict: approved
 
 | Delegate | Round 1 | Round 2 |
 | --- | --- | --- |
-| Claude Opus | 7/10 | 9/10 |
-| GPT Sol | 8/10 | 10/10 |
-| Gemini Pro | 7/10 | 9/10 |
+| GPT Astra | 8/10 | 10/10 |
+| Gemini 4 Neon | 7/10 | 9/10 |
 ```
-
-If a delegate gives no score, write `no score`. Do not invent one.
-If the PR is open, edit the description. Do not post a comment for this.
-If there is no PR, put the same results in the final reply only.
-
-If you agree with their recommendations, make the changes and request a fresh
-review after. Continue this process until all delegates are satisfied with the
-outcome.
-
-Do not let repeated reviews result in scope creep. It is your job to fight to
-keep scope limited.

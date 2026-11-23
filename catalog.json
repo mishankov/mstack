@@ -15,7 +15,8 @@
     "replaces": ["leaving-pr-comments"]
   },
   "implement": {
-    "summary": "Apply skill updates by default and delegate independent implementation work"
+    "summary": "Confirm implementation intent and delegate independent implementation work",
+    "requires": ["start-thread"]
   },
   "implement-ui": {
     "summary": "Design, review, and implement user interfaces on any platform"
@@ -36,12 +37,15 @@
   },
   "ship-pr": {
     "summary": "Take a change through review and merge the pull request",
-    "requires": ["babysit-pr", "file-pr", "implement", "review-loop"],
+    "requires": ["babysit-pr", "file-pr", "implement", "review-loop", "start-thread"],
     "replaces": ["full-send"]
   },
   "stage-pr": {
     "summary": "Take a change through review and leave the pull request ready to merge",
     "requires": ["ship-pr"],
     "replaces": ["full-stop"]
+  },
+  "start-thread": {
+    "summary": "Run thread-start checks and update the mstack CLI and installed skills"
   }
 }

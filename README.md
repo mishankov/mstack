@@ -83,13 +83,14 @@ Most users interact with `mstack` through **`stage-pr`** and **`ship-pr`**. Thos
 | Skill | Summary | Dependencies |
 | --- | --- | --- |
 | [`stage-pr`](skills/stage-pr/SKILL.md) | Implement, prove, review, file, and babysit a PR, then hand off ready to merge without merging. | `ship-pr` |
-| [`ship-pr`](skills/ship-pr/SKILL.md) | Implement, prove, review, file, babysit, and merge a PR unattended once the merge gate passes. | `babysit-pr`, `file-pr`, `implement`, `review-loop` |
+| [`ship-pr`](skills/ship-pr/SKILL.md) | Implement, prove, review, file, babysit, and merge a PR unattended once the merge gate passes. | `babysit-pr`, `file-pr`, `implement`, `review-loop`, `start-thread` |
 
 ### Supporting skills (called by `stage-pr` and `ship-pr`)
 
 | Skill | Summary | Dependencies |
 | --- | --- | --- |
-| [`implement`](skills/implement/SKILL.md) | Confirm implementation intent, apply mstack skill updates by default, and parallelize independent work. | — |
+| [`start-thread`](skills/start-thread/SKILL.md) | Run at the start of every new top-level thread to upgrade the mstack CLI and apply pending skill updates by default. | — |
+| [`implement`](skills/implement/SKILL.md) | Confirm implementation intent and parallelize independent work. | `start-thread` |
 | [`review-loop`](skills/review-loop/SKILL.md) | Run a bounded findings loop with Astra (including Impeccable audit/critique checks on UI changes). | `impeccable` |
 | [`file-pr`](skills/file-pr/SKILL.md) | Prepare and open a concise, problem-first pull request. | `babysit-pr`, `github-comments` |
 | [`babysit-pr`](skills/babysit-pr/SKILL.md) | Monitor PR checks, reviews, and base-branch drift without writing a custom polling loop. | `github-comments` |
@@ -124,20 +125,20 @@ Most users interact with `mstack` through **`stage-pr`** and **`ship-pr`**. Thos
 
 Full flag semantics, lockfile format, safety guarantees, and recovery steps are documented in [CLI & Lockfile Reference](docs/cli.md).
 
-### Automatic updates during implementation
+### Automatic updates at thread start
 
-When a project has `.agents/mstack.lock.json`, the `implement` skill (also invoked by `ship-pr` and `stage-pr`) runs `mstack update --check` once per project per task. By default it applies pending skill, dependency, and language attribute changes before editing code.
+When a project has `.agents/mstack.lock.json`, the `start-thread` skill (also installed as a dependency of `implement`, `ship-pr`, and `stage-pr`) runs once per project at the start of every new top-level thread. By default it upgrades the `mstack` CLI, runs `mstack update --check`, and applies pending skill, rename, dependency, and language attribute changes before other work.
 
 To keep the check visible without auto-applying, tell your agent or add this line to your project's `AGENTS.md`:
 
 ```markdown
-Defer mstack skill updates during implementation.
+Defer mstack updates at thread start.
 ```
 
 To skip the update check altogether, add:
 
 ```markdown
-Skip mstack skill update checks during implementation.
+Skip mstack updates at thread start.
 ```
 
 If you share installed skills via Git, commit `.agents/mstack.lock.json` and `.agents/.gitattributes` alongside `.agents/skills/`. The lockfile records the exact installed versions, and the attributes file keeps all `mstack`-managed skills out of GitHub's language statistics. Run `mstack update` in an existing installation to create the rules. [GitHub language statistics](docs/cli.md#github-language-statistics)

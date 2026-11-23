@@ -16,7 +16,7 @@ Use **`stage-pr`** when you want the agent to take a change all the way to a rev
 
 Both workflows run the same end-to-end pipeline:
 
-1. **Implement** the smallest change that fulfills the request (branching off the default branch if needed, and running `implement`'s skill update check).
+1. **Implement** the smallest change that fulfills the request (branching off the default branch if needed, and ensuring [`start-thread`](#start-thread) updates have run).
 2. **Prove** every change with direct observed evidence (reproduction, CI checks, a focused test, or running the app and inspecting screenshots for UI changes).
 3. **Review** using [`review-loop`](#review-loop) (which includes Impeccable audit/critique checks when the diff changes user-facing UI).
 4. **File the PR** using [`file-pr`](#file-pr) after rebasing onto the latest default branch, adding a one-line proof summary to the description.
@@ -39,17 +39,24 @@ Both workflows run the same end-to-end pipeline:
 
 You normally get these automatically when running `stage-pr` or `ship-pr`, though you can also call any of them directly.
 
+### `start-thread`
+Source: [`skills/start-thread/SKILL.md`](../skills/start-thread/SKILL.md)
+
+Runs once per project at the start of every new top-level thread (lead agent only; delegated children and subagents skip it), before other work:
+
+- **Update mstack CLI and skills.** When `.agents/mstack.lock.json` exists, upgrades the `mstack` CLI via `go install github.com/mishankov/mstack/cmd/mstack@latest` (falling back to any already-installed `mstack` binary if Go or `go install` fails), runs `mstack update --check`, and by default runs `mstack update` when the check reports skill updates, renames, missing dependencies, or pending language attribute changes. Re-reads any updated or renamed skill before following it.
+- To **defer** applying updates while still reporting pending skill changes, say so in your prompt or add `Defer mstack updates at thread start.` to your project's `AGENTS.md`.
+- To **skip** updates entirely, say so in your prompt or add `Skip mstack updates at thread start.` to your project's `AGENTS.md`.
+- If `mstack` is unavailable, times out, or hits local conflicts, the agent reports the issue, preserves local edits, and continues with the installed skills.
+
 ### `implement`
-Source: [`skills/implement/SKILL.md`](../skills/implement/SKILL.md)
+Source: [`skills/implement/SKILL.md`](../skills/implement/SKILL.md)  
+Dependency: `start-thread`
 
 Handles implementation kickoff and parallelization:
 
 1. **Confirm implementation intent:** Does not edit files or delegate during feasibility questions or design discussions; waits for a clear request to implement, then proceeds without re-confirming.
-2. **Check for skill updates.** Once per project per task (when `.agents/mstack.lock.json` exists), runs `mstack update --check` before editing code. By default, it runs `mstack update` when the check reports skill updates, missing dependencies, or pending language attribute changes.
-   - To **defer** applying updates while still reporting them, say so in your prompt or add `Defer mstack skill updates during implementation.` to your project's `AGENTS.md`.
-   - To **skip** the check entirely, say so in your prompt or add `Skip mstack skill update checks during implementation.` to your project's `AGENTS.md`.
-   - If `mstack` is missing, times out, or hits local conflicts, the agent reports the issue, preserves local edits, and continues with installed skills.
-3. **Parallelize independent work:** Uses subagents where changes decompose cleanly.
+2. **Parallelize independent work:** Uses subagents where changes decompose cleanly.
 
 ### `review-loop`
 Source: [`skills/review-loop/SKILL.md`](../skills/review-loop/SKILL.md)  

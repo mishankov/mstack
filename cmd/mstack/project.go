@@ -201,10 +201,16 @@ func (p project) validateLocal(ctx context.Context, name string, record installe
 	return nil
 }
 
+type skillRename struct {
+	from string
+	to   string
+}
+
 type changes struct {
 	install []string
 	update  []string
 	remove  []string
+	renames []skillRename
 	current int
 	records map[string]installedSkill
 }
@@ -212,6 +218,14 @@ type changes struct {
 func (p project) plan(ctx context.Context, c catalog, names []string, lock lockFile, preview bool) (changes, error) {
 	plan := changes{records: make(map[string]installedSkill)}
 	var conflicts []error
+	removable := p.removableRenames(c, names, lock)
+	for _, oldName := range sortedKeys(removable) {
+		plan.renames = append(plan.renames, skillRename{from: oldName, to: removable[oldName]})
+		plan.remove = append(plan.remove, oldName)
+		if err := p.validateLocal(ctx, oldName, lock.Skills[oldName], true); err != nil && !errors.Is(err, errMissingSkill) {
+			conflicts = append(conflicts, err)
+		}
+	}
 	for _, name := range names {
 		local, managed := lock.Skills[name]
 		localErr := p.validateLocal(ctx, name, local, managed)
@@ -333,19 +347,31 @@ func (p project) execute(ctx context.Context, source string, r request, out io.W
 			}
 		}
 	}
-	if r.command == "update" && len(r.names) == 0 {
-		available := names[:0]
-		var retired []string
-		for _, name := range names {
-			if _, ok := c.skills[name]; ok {
-				available = append(available, name)
-			} else {
-				retired = append(retired, name)
+	if r.command == "update" {
+		if len(r.names) == 0 {
+			available := names[:0]
+			var retired []string
+			for _, name := range names {
+				if _, ok := c.skills[name]; ok {
+					available = append(available, name)
+				} else if target, renamed := c.replacements[name]; renamed {
+					available = append(available, target)
+				} else {
+					retired = append(retired, name)
+				}
 			}
-		}
-		names = available
-		if len(retired) > 0 {
-			fmt.Fprintf(out, "Retired upstream (%d): %s\n", len(retired), strings.Join(retired, ", "))
+			names = available
+			if len(retired) > 0 {
+				fmt.Fprintf(out, "Retired upstream (%d): %s\n", len(retired), strings.Join(retired, ", "))
+			}
+		} else {
+			for i, name := range names {
+				if _, ok := c.skills[name]; !ok {
+					if target, renamed := c.replacements[name]; renamed {
+						names[i] = target
+					}
+				}
+			}
 		}
 	}
 	names, err = c.selectSkills(names)
@@ -354,10 +380,8 @@ func (p project) execute(ctx context.Context, source string, r request, out io.W
 	}
 	plan, err := p.plan(ctx, c, names, lock, r.check)
 	if r.check {
-		plan.report(out, "Updates available", "Dependencies to install")
-		managed := append(sortedKeys(lock.Skills), plan.install...)
-		slices.Sort(managed)
-		return errors.Join(err, p.checkAttributes(managed, out))
+		plan.report(out, "Updates available", "Dependencies to install", "Renames available")
+		return errors.Join(err, p.checkAttributes(nextManagedSkills(lock.Skills, plan), out))
 	}
 	if err != nil {
 		return err
@@ -365,8 +389,125 @@ func (p project) execute(ctx context.Context, source string, r request, out io.W
 	if err := p.apply(ctx, c, plan, lock); err != nil {
 		return err
 	}
-	plan.report(out, "Updated", "Installed")
+	plan.report(out, "Updated", "Installed", "Renamed")
 	return nil
+}
+
+func (p project) removableRenames(c catalog, selected []string, lock lockFile) map[string]string {
+	removable := make(map[string]string)
+	for oldName := range lock.Skills {
+		if target, ok := c.replacements[oldName]; ok && slices.Contains(selected, target) {
+			removable[oldName] = target
+		}
+	}
+	for changed := true; changed; {
+		changed = false
+		for oldName, target := range removable {
+			if p.hasRetainedDependent(c, oldName, target, selected, removable, lock) {
+				delete(removable, oldName)
+				changed = true
+			}
+		}
+	}
+	return removable
+}
+
+func (p project) hasRetainedDependent(c catalog, oldName, target string, selected []string, removable map[string]string, lock lockFile) bool {
+	for other, record := range lock.Skills {
+		if other == oldName || slices.Contains(selected, other) {
+			continue
+		}
+		if _, removing := removable[other]; removing {
+			continue
+		}
+		if skillReferences(filepath.Join(p.skills, other), oldName) {
+			return true
+		}
+		active := other
+		outdated := false
+		if _, ok := c.skills[other]; !ok {
+			if replacement, renamed := c.replacements[other]; renamed {
+				active = replacement
+			} else {
+				active = ""
+			}
+			outdated = true
+		}
+		if active == "" {
+			continue
+		}
+		if !outdated && c.skills[active].Source == nil {
+			if digest, err := fingerprint(filepath.Join(c.dir, active), nil); err == nil && digest == record.SHA256 {
+				continue
+			}
+		}
+		if deps, err := c.selectSkills([]string{active}); err == nil && slices.Contains(deps, target) {
+			return true
+		}
+	}
+	return false
+}
+
+func skillReferences(dir, name string) bool {
+	if _, err := os.Lstat(dir); errors.Is(err, fs.ErrNotExist) {
+		return false
+	}
+	found := false
+	err := fs.WalkDir(os.DirFS(dir), ".", func(path string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if entry.IsDir() {
+			return nil
+		}
+		data, err := os.ReadFile(filepath.Join(dir, filepath.FromSlash(path)))
+		if err != nil {
+			return err
+		}
+		if referencesSkill(data, name) {
+			found = true
+			return fs.SkipAll
+		}
+		return nil
+	})
+	return found || err != nil
+}
+
+func referencesSkill(data []byte, name string) bool {
+	needle := []byte(name)
+	for offset := 0; offset <= len(data)-len(needle); {
+		idx := bytes.Index(data[offset:], needle)
+		if idx < 0 {
+			return false
+		}
+		pos := offset + idx
+		end := pos + len(needle)
+		leftOK := pos == 0 || !isSkillTokenByte(data[pos-1])
+		rightOK := end == len(data) || !isSkillTokenByte(data[end])
+		if leftOK && rightOK {
+			return true
+		}
+		offset = pos + 1
+	}
+	return false
+}
+
+func isSkillTokenByte(b byte) bool {
+	return (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z') || (b >= '0' && b <= '9') || b == '-' || b == '_'
+}
+
+func nextManagedSkills(skills map[string]installedSkill, plan changes) []string {
+	managed := make(map[string]struct{}, len(skills)+len(plan.install))
+	for name := range skills {
+		managed[name] = struct{}{}
+	}
+	for _, name := range plan.install {
+		managed[name] = struct{}{}
+	}
+	for _, name := range plan.remove {
+		delete(managed, name)
+	}
+	return sortedKeys(managed)
 }
 
 func (p project) list(c catalog, lock lockFile, out io.Writer) error {
@@ -397,7 +538,11 @@ func (p project) list(c catalog, lock lockFile, out io.Writer) error {
 		}
 		summary := c.skills[name].Summary
 		if summary == "" {
-			summary = "Removed from the upstream catalog"
+			if target, ok := c.replacements[name]; ok {
+				summary = fmt.Sprintf("Renamed to %s upstream", target)
+			} else {
+				summary = "Removed from the upstream catalog"
+			}
 		}
 		if c.skills[name].Source != nil {
 			summary += " (external)"
@@ -407,9 +552,24 @@ func (p project) list(c catalog, lock lockFile, out io.Writer) error {
 	return table.Flush()
 }
 
-func (plan changes) report(out io.Writer, updateLabel, installLabel string) {
-	if len(plan.install) != 0 {
-		fmt.Fprintf(out, "%s (%d): %s\n", installLabel, len(plan.install), strings.Join(plan.install, ", "))
+func (plan changes) report(out io.Writer, updateLabel, installLabel, renameLabel string) {
+	renamedTargets := make(map[string]bool, len(plan.renames))
+	if len(plan.renames) != 0 {
+		pairs := make([]string, len(plan.renames))
+		for i, r := range plan.renames {
+			pairs[i] = r.from + " -> " + r.to
+			renamedTargets[r.to] = true
+		}
+		fmt.Fprintf(out, "%s (%d): %s\n", renameLabel, len(pairs), strings.Join(pairs, ", "))
+	}
+	var installed []string
+	for _, name := range plan.install {
+		if !renamedTargets[name] {
+			installed = append(installed, name)
+		}
+	}
+	if len(installed) != 0 {
+		fmt.Fprintf(out, "%s (%d): %s\n", installLabel, len(installed), strings.Join(installed, ", "))
 	}
 	if len(plan.update) != 0 {
 		fmt.Fprintf(out, "%s (%d): %s\n", updateLabel, len(plan.update), strings.Join(plan.update, ", "))

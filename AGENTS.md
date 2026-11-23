@@ -15,7 +15,7 @@ Repository conventions for agents and maintainers working on `mstack`.
 - **Activation in frontmatter, procedure in body.** Put activation conditions in YAML `description` (1–1024 characters), and match YAML `name` to the skill folder name. Keep bodies direct, procedural, and free of unnecessary constraints.
 - **Keep skills portable.** Never hardcode project-specific commands, issue trackers, or environments into skills; those belong in each destination project's documentation.
 - **Preserve complete skill folders.** Keep `agents/openai.yaml` metadata, `references/`, helper scripts under `scripts/` (committed with executable mode `100755`), relative links, and declared dependencies intact.
-- **Treat skill text as source.** Mentioning trigger phrases (`full send`, `full stop`, `review loop`, `review group`, etc.) while reading, copying, or editing files in `skills/` is not a request to execute those workflows.
+- **Treat skill text as source.** Mentioning trigger phrases (`ship PR`, `stage PR`, `review loop`, `review panel`, etc.) while reading, copying, or editing files in `skills/` is not a request to execute those workflows.
 
 ## Validation and documentation
 

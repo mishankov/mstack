@@ -20,13 +20,15 @@ import (
 type skill struct {
 	Summary  string          `json:"summary"`
 	Requires []string        `json:"requires"`
+	Replaces []string        `json:"replaces,omitempty"`
 	Source   *externalSource `json:"source,omitempty"`
 }
 
 type catalog struct {
-	dir      string
-	revision string
-	skills   map[string]skill
+	dir          string
+	revision     string
+	skills       map[string]skill
+	replacements map[string]string
 }
 
 var skillName = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
@@ -77,8 +79,9 @@ func fetchCatalog(ctx context.Context, temp, source string) (catalog, error) {
 	if err := extractCatalog(dir, tar.NewReader(bytes.NewReader(archive))); err != nil {
 		return catalog{}, err
 	}
-	skills, err := readCatalog(dir)
-	return catalog{dir: filepath.Join(dir, "skills"), revision: revision, skills: skills}, err
+	c, err := readCatalog(dir)
+	c.revision = revision
+	return c, err
 }
 
 func extractCatalog(dir string, archive *tar.Reader) error {
@@ -123,58 +126,74 @@ func extractCatalog(dir string, archive *tar.Reader) error {
 	}
 }
 
-func readCatalog(dir string) (map[string]skill, error) {
+func readCatalog(dir string) (catalog, error) {
 	data, err := os.ReadFile(filepath.Join(dir, "catalog.json"))
 	if err != nil {
-		return nil, err
+		return catalog{}, err
 	}
 	var skills map[string]skill
 	if err := json.Unmarshal(data, &skills); err != nil {
-		return nil, fmt.Errorf("read catalog.json: %w", err)
+		return catalog{}, fmt.Errorf("read catalog.json: %w", err)
 	}
 	if skills == nil {
-		return nil, fmt.Errorf("catalog.json must contain a skill map")
+		return catalog{}, fmt.Errorf("catalog.json must contain a skill map")
 	}
 	for name, entry := range skills {
 		if entry.Source != nil {
-			return nil, fmt.Errorf("declare external skill %q in %s", name, externalManifest)
+			return catalog{}, fmt.Errorf("declare external skill %q in %s", name, externalManifest)
 		}
 	}
 	if err := readExternalSkills(dir, skills); err != nil {
-		return nil, err
+		return catalog{}, err
 	}
 	entries, err := os.ReadDir(filepath.Join(dir, "skills"))
 	if err != nil {
-		return nil, err
+		return catalog{}, err
 	}
 	for _, entry := range entries {
 		if entry.IsDir() {
 			skill, ok := skills[entry.Name()]
 			if !ok {
-				return nil, fmt.Errorf("skill %q is missing from catalog.json", entry.Name())
+				return catalog{}, fmt.Errorf("skill %q is missing from catalog.json", entry.Name())
 			}
 			if skill.Source != nil {
-				return nil, fmt.Errorf("external skill %q also has a bundled folder", entry.Name())
+				return catalog{}, fmt.Errorf("external skill %q also has a bundled folder", entry.Name())
 			}
 		}
 	}
+	replacements := make(map[string]string)
 	for _, name := range sortedKeys(skills) {
 		skill := skills[name]
 		if !validName(name) || strings.TrimSpace(skill.Summary) == "" {
-			return nil, fmt.Errorf("invalid catalog entry for %q", name)
+			return catalog{}, fmt.Errorf("invalid catalog entry for %q", name)
 		}
 		if skill.Source == nil {
 			if err := checkSkillFile(filepath.Join(dir, "skills", name)); err != nil {
-				return nil, fmt.Errorf("skill %q: %w", name, err)
+				return catalog{}, fmt.Errorf("skill %q: %w", name, err)
 			}
 		}
 		for _, dependency := range skill.Requires {
 			if _, ok := skills[dependency]; !ok {
-				return nil, fmt.Errorf("skill %q requires unknown skill %q", name, dependency)
+				return catalog{}, fmt.Errorf("skill %q requires unknown skill %q", name, dependency)
 			}
 		}
+		for _, oldName := range skill.Replaces {
+			if !validName(oldName) {
+				return catalog{}, fmt.Errorf("skill %q replaces invalid skill name %q", name, oldName)
+			}
+			if _, ok := skills[oldName]; ok {
+				return catalog{}, fmt.Errorf("skill %q cannot replace active skill %q", name, oldName)
+			}
+			if existing, dup := replacements[oldName]; dup {
+				if existing == name {
+					return catalog{}, fmt.Errorf("skill %q lists replaced skill %q more than once", name, oldName)
+				}
+				return catalog{}, fmt.Errorf("replaced skill %q is claimed by both %q and %q", oldName, existing, name)
+			}
+			replacements[oldName] = name
+		}
 	}
-	return skills, nil
+	return catalog{dir: filepath.Join(dir, "skills"), skills: skills, replacements: replacements}, nil
 }
 
 func checkSkillFile(dir string) error {
@@ -194,6 +213,9 @@ func (c catalog) selectSkills(roots []string) ([]string, error) {
 		}
 		skill, ok := c.skills[name]
 		if !ok {
+			if replacement, renamed := c.replacements[name]; renamed {
+				return fmt.Errorf("skill %q was renamed to %q (use mstack install %s)", name, replacement, replacement)
+			}
 			return fmt.Errorf("skill %q is unavailable in the upstream catalog", name)
 		}
 		selected[name] = true

@@ -55,32 +55,32 @@ func TestProjectSkillLifecycle(t *testing.T) {
 	}
 	command("", "update", "--check")
 	command("", "update")
-	command("not managed by mstack", "remove", "full-stop")
+	command("not managed by mstack", "remove", "stage-pr")
 	assertMissing(t, p.agents)
 
 	collision := filepath.Join(p.skills, "babysit-pr", "SKILL.md")
 	writeFile(t, collision, []byte("User's existing copy\n"))
-	command("unmanaged skill already exists", "install", "full-stop")
+	command("unmanaged skill already exists", "install", "stage-pr")
 	if got := string(readFile(t, collision)); got != "User's existing copy\n" {
 		t.Fatalf("overwrote unmanaged skill: %q", got)
 	}
-	assertMissing(t, filepath.Join(p.skills, "full-stop"))
+	assertMissing(t, filepath.Join(p.skills, "stage-pr"))
 	assertMissing(t, p.lock)
 	if err := os.RemoveAll(filepath.Dir(collision)); err != nil {
 		t.Fatal(err)
 	}
 
-	command("", "install", "full-stop")
+	command("", "install", "stage-pr")
 	lock, err := p.readLock()
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []string{"babysit-pr", "file-pr", "full-send", "full-stop", "implement", "leaving-pr-comments", "review-loop"}
+	want := []string{"babysit-pr", "file-pr", "github-comments", "implement", "review-loop", "ship-pr", "stage-pr"}
 	if got := sortedKeys(lock.Skills); !slices.Equal(got, want) {
 		t.Fatalf("installed %v, want %v", got, want)
 	}
-	if lock.Skills["full-stop"].Commit != first {
-		t.Fatalf("wrong source commit in lock: %+v", lock.Skills["full-stop"])
+	if lock.Skills["stage-pr"].Commit != first {
+		t.Fatalf("wrong source commit in lock: %+v", lock.Skills["stage-pr"])
 	}
 	const helper = "babysit-pr/scripts/pr-wait"
 	installedHelper := filepath.Join(p.skills, filepath.FromSlash(helper))
@@ -98,8 +98,8 @@ func TestProjectSkillLifecycle(t *testing.T) {
 	if runtime.GOOS != "windows" && mode.Mode().Perm()&0o100 == 0 {
 		t.Fatal("pr-wait lost its executable permission")
 	}
-	readFile(t, filepath.Join(p.skills, "full-stop", "agents", "openai.yaml"))
-	command("", "install", "review-group")
+	readFile(t, filepath.Join(p.skills, "stage-pr", "agents", "openai.yaml"))
+	command("", "install", "review-panel")
 
 	attributes := filepath.Join(p.agents, attributesName)
 	if err := os.Remove(attributes); err != nil {
@@ -144,9 +144,9 @@ func TestProjectSkillLifecycle(t *testing.T) {
 	if err := json.Unmarshal(manifest, &entries); err != nil {
 		t.Fatal(err)
 	}
-	entry := entries["full-send"]
+	entry := entries["ship-pr"]
 	entry.Requires = append(entry.Requires, "capture-issue")
-	entries["full-send"] = entry
+	entries["ship-pr"] = entry
 	next, err := json.Marshal(entries)
 	if err != nil {
 		t.Fatal(err)
@@ -155,16 +155,16 @@ func TestProjectSkillLifecycle(t *testing.T) {
 	if err := os.Remove(filepath.Join(source, "skills", oldGuide)); err != nil {
 		t.Fatal(err)
 	}
-	fullSend := filepath.Join("full-send", "SKILL.md")
-	reviewGroup := filepath.Join("review-group", "SKILL.md")
-	original := readFile(t, filepath.Join(p.skills, fullSend))
+	shipPR := filepath.Join("ship-pr", "SKILL.md")
+	reviewPanel := filepath.Join("review-panel", "SKILL.md")
+	original := readFile(t, filepath.Join(p.skills, shipPR))
 	upstreamUpdate := append(slices.Clone(original), []byte("\nUpstream change.\n")...)
-	writeFile(t, filepath.Join(source, "skills", fullSend), upstreamUpdate)
-	writeFile(t, filepath.Join(source, "skills", reviewGroup), []byte("New review guidance.\n"))
+	writeFile(t, filepath.Join(source, "skills", shipPR), upstreamUpdate)
+	writeFile(t, filepath.Join(source, "skills", reviewPanel), []byte("New review guidance.\n"))
 	second := commitRepo(t, source)
 
 	before = readFile(t, p.lock)
-	if out := command("", "update", "full-stop", "--check"); !strings.Contains(out, "babysit-pr, full-send") || !strings.Contains(out, "capture-issue") || strings.Contains(out, "review-group") {
+	if out := command("", "update", "stage-pr", "--check"); !strings.Contains(out, "babysit-pr, ship-pr") || !strings.Contains(out, "capture-issue") || strings.Contains(out, "review-panel") {
 		t.Fatalf("unexpected update check:\n%s", out)
 	}
 	assertMissing(t, filepath.Join(p.skills, "capture-issue"))
@@ -172,32 +172,32 @@ func TestProjectSkillLifecycle(t *testing.T) {
 		t.Fatal("--check wrote the lock file")
 	}
 	localEdit := []byte("Keep my changes.\n")
-	writeFile(t, filepath.Join(p.skills, fullSend), localEdit)
-	if out := command("local changes", "update", "full-stop", "--check"); !strings.Contains(out, "Updates available") {
+	writeFile(t, filepath.Join(p.skills, shipPR), localEdit)
+	if out := command("local changes", "update", "stage-pr", "--check"); !strings.Contains(out, "Updates available") {
 		t.Fatalf("check omitted available updates:\n%s", out)
 	}
-	command("local changes", "update", "full-stop")
-	if !bytes.Equal(localEdit, readFile(t, filepath.Join(p.skills, fullSend))) || !bytes.Equal(before, readFile(t, p.lock)) {
+	command("local changes", "update", "stage-pr")
+	if !bytes.Equal(localEdit, readFile(t, filepath.Join(p.skills, shipPR))) || !bytes.Equal(before, readFile(t, p.lock)) {
 		t.Fatal("conflicting update modified local changes or the lock file")
 	}
 	readFile(t, filepath.Join(p.skills, oldGuide))
 	assertMissing(t, filepath.Join(p.skills, "capture-issue"))
 
-	writeFile(t, filepath.Join(p.skills, fullSend), original)
-	command("", "update", "full-stop")
+	writeFile(t, filepath.Join(p.skills, shipPR), original)
+	command("", "update", "stage-pr")
 	assertMissing(t, filepath.Join(p.skills, oldGuide))
-	if !bytes.Equal(upstreamUpdate, readFile(t, filepath.Join(p.skills, fullSend))) {
+	if !bytes.Equal(upstreamUpdate, readFile(t, filepath.Join(p.skills, shipPR))) {
 		t.Fatal("update did not install the new skill file")
 	}
 	lock, err = p.readLock()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if lock.Skills["capture-issue"].Commit != second || lock.Skills["review-group"].Commit != first {
+	if lock.Skills["capture-issue"].Commit != second || lock.Skills["review-panel"].Commit != first {
 		t.Fatalf("scoped update recorded the wrong commits: %+v", lock.Skills)
 	}
 	command("", "update")
-	if got := readFile(t, filepath.Join(p.skills, reviewGroup)); string(got) != "New review guidance.\n" {
+	if got := readFile(t, filepath.Join(p.skills, reviewPanel)); string(got) != "New review guidance.\n" {
 		t.Fatalf("update omitted a managed skill: %q", got)
 	}
 	command("", "install", "--all")
@@ -445,6 +445,265 @@ func TestRetiredSkillLifecycle(t *testing.T) {
 		t.Fatalf("update left %q, want %q", got, custom)
 	}
 	assertMissing(t, p.transaction)
+}
+
+func TestRenamedSkillLifecycle(t *testing.T) {
+	ctx := context.Background()
+	source := t.TempDir()
+	initRepo(t, source)
+	manifest := filepath.Join(source, "catalog.json")
+	writeFile(t, manifest, []byte(`{
+		"old-dep": {"summary": "Old dep"},
+		"old-main": {"summary": "Old main", "requires": ["old-dep"]},
+		"old-dropped": {"summary": "Old dropped", "requires": ["old-dep"]},
+		"old-side": {"summary": "Old side"},
+		"retired": {"summary": "Retired"}
+	}`))
+	writeFile(t, filepath.Join(source, "skills", "old-dep", "SKILL.md"), []byte("Old dep.\n"))
+	writeFile(t, filepath.Join(source, "skills", "old-main", "SKILL.md"), []byte("Old main.\n"))
+	writeFile(t, filepath.Join(source, "skills", "old-dropped", "SKILL.md"), []byte("See [old-dep](../old-dep/SKILL.md).\n"))
+	writeFile(t, filepath.Join(source, "skills", "old-side", "SKILL.md"), []byte("Old side.\n"))
+	writeFile(t, filepath.Join(source, "skills", "retired", "SKILL.md"), []byte("Retired.\n"))
+	commitRepo(t, source)
+
+	dest := t.TempDir()
+	initRepo(t, dest)
+	command := func(wantError string, args ...string) string {
+		t.Helper()
+		var out bytes.Buffer
+		err := run(ctx, dest, source, args, &out)
+		if wantError == "" && err != nil || wantError != "" && (err == nil || !strings.Contains(err.Error(), wantError)) {
+			t.Fatalf("mstack %v: got error %v, want %q\n%s", args, err, wantError, out.String())
+		}
+		return out.String()
+	}
+	command("", "install", "--all")
+
+	// Upstream renames old-dep -> new-dep, old-main -> new-main, old-dropped -> new-dropped (dropping new-dep),
+	// old-side -> new-side, and retires retired.
+	writeFile(t, manifest, []byte(`{
+		"new-dep": {"summary": "New dep", "replaces": ["old-dep"]},
+		"new-main": {"summary": "New main", "requires": ["new-dep"], "replaces": ["old-main"]},
+		"new-dropped": {"summary": "New dropped", "replaces": ["old-dropped"]},
+		"new-side": {"summary": "New side", "replaces": ["old-side"]}
+	}`))
+	for _, old := range []string{"old-dep", "old-main", "old-dropped", "old-side", "retired"} {
+		if err := os.RemoveAll(filepath.Join(source, "skills", old)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	writeFile(t, filepath.Join(source, "skills", "new-dep", "SKILL.md"), []byte("New dep.\n"))
+	writeFile(t, filepath.Join(source, "skills", "new-main", "SKILL.md"), []byte("New main.\n"))
+	writeFile(t, filepath.Join(source, "skills", "new-dropped", "SKILL.md"), []byte("New dropped.\n"))
+	writeFile(t, filepath.Join(source, "skills", "new-side", "SKILL.md"), []byte("New side.\n"))
+	commitRepo(t, source)
+
+	p := openProject(dest)
+	if out := command("", "list"); !strings.Contains(out, "Renamed to new-main upstream") || !strings.Contains(out, "Removed from the upstream catalog") {
+		t.Fatalf("list did not distinguish renamed and retired skills:\n%s", out)
+	}
+	command("renamed to \"new-main\"", "install", "old-main")
+
+	// Scoped update check previews only old-main (preserving old-dep while old-dropped still links to it).
+	before := readFile(t, p.lock)
+	if out := command("", "update", "--check", "old-main"); !strings.Contains(out, "Renames available (1): old-main -> new-main") ||
+		!strings.Contains(out, "Dependencies to install (1): new-dep") ||
+		strings.Contains(out, "old-side") || !strings.Contains(out, "Skill attributes need updating: .agents/.gitattributes") {
+		t.Fatalf("unexpected scoped rename check:\n%s", out)
+	}
+	if !bytes.Equal(before, readFile(t, p.lock)) {
+		t.Fatal("--check modified the lockfile")
+	}
+
+	// Local edit on the renamed skill blocks migration without modifying anything.
+	oldMainDoc := filepath.Join(p.skills, "old-main", "SKILL.md")
+	writeFile(t, oldMainDoc, []byte("Local edit.\n"))
+	command("local changes", "update", "old-main")
+	assertMissing(t, filepath.Join(p.skills, "new-main"))
+	if !bytes.Equal(before, readFile(t, p.lock)) {
+		t.Fatal("conflicting rename modified the lockfile")
+	}
+	writeFile(t, oldMainDoc, []byte("Old main.\n"))
+
+	// Unmanaged folder at the destination blocks migration without touching either folder.
+	unmanaged := filepath.Join(p.skills, "new-main", "SKILL.md")
+	writeFile(t, unmanaged, []byte("Custom skill.\n"))
+	command("unmanaged skill already exists", "update", "old-main")
+	if got := string(readFile(t, unmanaged)); got != "Custom skill.\n" {
+		t.Fatalf("overwrote unmanaged destination: %q", got)
+	}
+	if got := string(readFile(t, oldMainDoc)); got != "Old main.\n" {
+		t.Fatalf("removed old skill after destination collision: %q", got)
+	}
+	if err := os.RemoveAll(filepath.Dir(unmanaged)); err != nil {
+		t.Fatal(err)
+	}
+
+	// Scoped update of a renamed dependency preserves old-dep while old-main and old-dropped still depend on it.
+	if out := command("", "update", "old-dep"); !strings.Contains(out, "Installed (1): new-dep") || strings.Contains(out, "Renamed") {
+		t.Fatalf("scoped dependency update should preserve old-dep while callers are installed:\n%s", out)
+	}
+	if got := string(readFile(t, filepath.Join(p.skills, "old-dep", "SKILL.md"))); got != "Old dep.\n" {
+		t.Fatalf("old-dep was removed while callers still depended on it: %q", got)
+	}
+	if got := string(readFile(t, filepath.Join(p.skills, "new-dep", "SKILL.md"))); got != "New dep.\n" {
+		t.Fatalf("new-dep content = %q", got)
+	}
+
+	// Scoped update of old-main migrates old-main, but still preserves old-dep because installed old-dropped
+	// links to ../old-dep/SKILL.md even though new-dropped dropped that dependency.
+	if out := command("", "update", "old-main"); !strings.Contains(out, "Renamed (1): old-main -> new-main") {
+		t.Fatalf("unexpected scoped rename output:\n%s", out)
+	}
+	assertMissing(t, filepath.Join(p.skills, "old-main"))
+	if got := string(readFile(t, filepath.Join(p.skills, "old-dep", "SKILL.md"))); got != "Old dep.\n" {
+		t.Fatalf("old-dep was removed while old-dropped still linked to it: %q", got)
+	}
+	if got := string(readFile(t, filepath.Join(p.skills, "new-main", "SKILL.md"))); got != "New main.\n" {
+		t.Fatalf("new-main content = %q", got)
+	}
+	if got := string(readFile(t, filepath.Join(p.skills, "old-side", "SKILL.md"))); got != "Old side.\n" {
+		t.Fatalf("unrelated old-side changed: %q", got)
+	}
+
+	// Simulate an already-missing old folder before bulk update, which now finishes migrating old-dropped,
+	// old-side, and the previously preserved old-dep.
+	if err := os.RemoveAll(filepath.Join(p.skills, "old-side")); err != nil {
+		t.Fatal(err)
+	}
+	if out := command("", "update"); !strings.Contains(out, "Retired upstream (1): retired") ||
+		!strings.Contains(out, "Renamed (3): old-dep -> new-dep, old-dropped -> new-dropped, old-side -> new-side") {
+		t.Fatalf("unexpected bulk rename output:\n%s", out)
+	}
+	assertMissing(t, filepath.Join(p.skills, "old-dep"))
+	assertMissing(t, filepath.Join(p.skills, "old-dropped"))
+	assertMissing(t, filepath.Join(p.skills, "old-side"))
+	if got := string(readFile(t, filepath.Join(p.skills, "new-side", "SKILL.md"))); got != "New side.\n" {
+		t.Fatalf("new-side content = %q", got)
+	}
+
+	lock, err := p.readLock()
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantSkills := []string{"new-dep", "new-dropped", "new-main", "new-side", "retired"}
+	if got := sortedKeys(lock.Skills); !slices.Equal(got, wantSkills) {
+		t.Fatalf("lock skills = %v, want %v", got, wantSkills)
+	}
+	attrs := string(readFile(t, filepath.Join(p.agents, attributesName)))
+	for _, old := range []string{"old-dep", "old-dropped", "old-main", "old-side"} {
+		if strings.Contains(attrs, "skills/"+old+"/") {
+			t.Fatalf("attributes retained renamed skill %q:\n%s", old, attrs)
+		}
+	}
+	for _, name := range wantSkills {
+		if !strings.Contains(attrs, "skills/"+name+"/** linguist-vendored") {
+			t.Fatalf("attributes missing %q:\n%s", name, attrs)
+		}
+	}
+
+	// Subsequent check reports everything current with no pending renames or attribute changes.
+	if out := command("", "update", "--check"); strings.Contains(out, "Rename") || strings.Contains(out, "Skill attributes") || !strings.Contains(out, "Already current: 4") {
+		t.Fatalf("unexpected follow-up check:\n%s", out)
+	}
+
+	// Partial migration: if an older CLI installed new-side while leaving old-side in the lockfile,
+	// mstack update cleans up the leftover old-side entry without disturbing new-side.
+	lock.Skills["old-side"] = lock.Skills["new-side"]
+	data, err := json.MarshalIndent(lock, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, p.lock, append(data, '\n'))
+	if out := command("", "update"); !strings.Contains(out, "Renamed (1): old-side -> new-side") {
+		t.Fatalf("partial migration did not clean up old-side:\n%s", out)
+	}
+	lock, err = p.readLock()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := sortedKeys(lock.Skills); !slices.Equal(got, wantSkills) {
+		t.Fatalf("partial migration left %v, want %v", got, wantSkills)
+	}
+	assertMissing(t, p.transaction)
+}
+
+func TestRenamedSkillRetentionPropagationAndLocalEdits(t *testing.T) {
+	ctx := context.Background()
+	source := t.TempDir()
+	initRepo(t, source)
+	manifest := filepath.Join(source, "catalog.json")
+	writeFile(t, manifest, []byte(`{
+		"old-dep": {"summary": "Old dep"},
+		"old-main": {"summary": "Old main", "requires": ["old-dep"]},
+		"active": {"summary": "Active"},
+		"retired": {"summary": "Retired", "requires": ["old-main"]}
+	}`))
+	writeFile(t, filepath.Join(source, "skills", "old-dep", "SKILL.md"), []byte("Old dep.\n"))
+	writeFile(t, filepath.Join(source, "skills", "old-main", "SKILL.md"), []byte("Use [old-dep](../old-dep/SKILL.md).\n"))
+	writeFile(t, filepath.Join(source, "skills", "active", "SKILL.md"), []byte("Active.\n"))
+	writeFile(t, filepath.Join(source, "skills", "retired", "SKILL.md"), []byte("Use [old-main](../old-main/SKILL.md).\n"))
+	commitRepo(t, source)
+
+	dest := t.TempDir()
+	initRepo(t, dest)
+	command := func(wantError string, args ...string) string {
+		t.Helper()
+		var out bytes.Buffer
+		err := run(ctx, dest, source, args, &out)
+		if wantError == "" && err != nil || wantError != "" && (err == nil || !strings.Contains(err.Error(), wantError)) {
+			t.Fatalf("mstack %v: got error %v, want %q\n%s", args, err, wantError, out.String())
+		}
+		return out.String()
+	}
+	command("", "install", "--all")
+
+	writeFile(t, manifest, []byte(`{
+		"new-dep": {"summary": "New dep", "replaces": ["old-dep"]},
+		"new-main": {"summary": "New main", "requires": ["new-dep"], "replaces": ["old-main"]},
+		"active": {"summary": "Active"}
+	}`))
+	for _, old := range []string{"old-dep", "old-main", "retired"} {
+		if err := os.RemoveAll(filepath.Join(source, "skills", old)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	writeFile(t, filepath.Join(source, "skills", "new-dep", "SKILL.md"), []byte("New dep.\n"))
+	writeFile(t, filepath.Join(source, "skills", "new-main", "SKILL.md"), []byte("Use [new-dep](../new-dep/SKILL.md).\n"))
+	commitRepo(t, source)
+
+	p := openProject(dest)
+
+	// Three-skill transitive retention: retired -> old-main -> old-dep.
+	// Updating old-main installs new-main and new-dep, but preserves both old-main and old-dep.
+	if out := command("", "update", "old-main"); !strings.Contains(out, "Installed (2): new-dep, new-main") || strings.Contains(out, "Renamed") {
+		t.Fatalf("expected transitive retention of old-main and old-dep:\n%s", out)
+	}
+	if got := string(readFile(t, filepath.Join(p.skills, "old-main", "SKILL.md"))); !strings.Contains(got, "../old-dep/SKILL.md") {
+		t.Fatalf("old-main was not preserved: %q", got)
+	}
+	if got := string(readFile(t, filepath.Join(p.skills, "old-dep", "SKILL.md"))); got != "Old dep.\n" {
+		t.Fatalf("old-dep was removed while retained old-main still linked to it: %q", got)
+	}
+
+	// Remove retired, and add a local link from the unselected current active skill to ../old-dep/SKILL.md.
+	command("", "remove", "retired")
+	activeDoc := filepath.Join(p.skills, "active", "SKILL.md")
+	writeFile(t, activeDoc, []byte("Active now links to [old-dep](../old-dep/SKILL.md).\n"))
+	if out := command("", "update", "old-main"); !strings.Contains(out, "Renamed (1): old-main -> new-main") || strings.Contains(out, "old-dep ->") {
+		t.Fatalf("expected old-main to migrate while old-dep stays preserved for locally edited active skill:\n%s", out)
+	}
+	assertMissing(t, filepath.Join(p.skills, "old-main"))
+	if got := string(readFile(t, filepath.Join(p.skills, "old-dep", "SKILL.md"))); got != "Old dep.\n" {
+		t.Fatalf("old-dep was removed while locally edited active skill still linked to it: %q", got)
+	}
+
+	// Restore active skill; bulk update now finishes migrating old-dep.
+	writeFile(t, activeDoc, []byte("Active.\n"))
+	if out := command("", "update"); !strings.Contains(out, "Renamed (1): old-dep -> new-dep") {
+		t.Fatalf("expected old-dep to finish migrating after active edit restored:\n%s", out)
+	}
+	assertMissing(t, filepath.Join(p.skills, "old-dep"))
 }
 
 func initRepo(t *testing.T, dir string) {

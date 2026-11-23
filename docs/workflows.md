@@ -1,18 +1,18 @@
 # Workflows & Skills Guide
 
-Most day-to-day work in `mstack` starts with **`full-stop`** or **`full-send`**. Those two skills are the main entry points users call; they automatically orchestrate the supporting skills for implementation, review, PR creation, monitoring, and GitHub comments.
+Most day-to-day work in `mstack` starts with **`stage-pr`** or **`ship-pr`**. Those two skills are the main entry points users call; they automatically orchestrate the supporting skills for implementation, review, PR creation, monitoring, and GitHub comments.
 
 Every skill is **project-portable**: it adapts to whatever issue tracker, test runner, linter, and Git conventions are already configured in your repository, and any supporting skill can also be invoked directly when you only want that single step.
 
 ---
 
-## 1. Primary workflows: `full-stop` and `full-send`
+## 1. Primary workflows: `stage-pr` and `ship-pr`
 
 Sources:
-- [`skills/full-stop/SKILL.md`](../skills/full-stop/SKILL.md)
-- [`skills/full-send/SKILL.md`](../skills/full-send/SKILL.md)
+- [`skills/stage-pr/SKILL.md`](../skills/stage-pr/SKILL.md)
+- [`skills/ship-pr/SKILL.md`](../skills/ship-pr/SKILL.md)
 
-Use **`full-stop`** when you want the agent to take a change all the way to a reviewed, green PR ready for you to merge. Use **`full-send`** when you are away from the thread and want the agent to carry the PR through review and merge autonomously.
+Use **`stage-pr`** when you want the agent to take a change all the way to a reviewed, green PR ready for you to merge. Use **`ship-pr`** when you are away from the thread and want the agent to carry the PR through review and merge autonomously.
 
 Both workflows run the same end-to-end pipeline:
 
@@ -20,24 +20,24 @@ Both workflows run the same end-to-end pipeline:
 2. **Prove** every change with direct observed evidence (reproduction, CI checks, a focused test, or running the app and inspecting screenshots for UI changes).
 3. **Review** using [`review-loop`](#review-loop) (which includes Impeccable audit/critique checks when the diff changes user-facing UI).
 4. **File the PR** using [`file-pr`](#file-pr) after rebasing onto the latest default branch, adding a one-line proof summary to the description.
-5. **Babysit the PR** using [`babysit-pr`](#babysit-pr) and [`leaving-pr-comments`](#leaving-pr-comments), fixing real findings and CI failures and re-proving each fix.
+5. **Babysit the PR** using [`babysit-pr`](#babysit-pr) and [`github-comments`](#github-comments), fixing real findings and CI failures and re-proving each fix.
 6. **Check the merge gate** on the latest commit: proof covers the diff, required checks are green, required reviews are complete with every finding fixed or dismissed with a written reason, no human review still requests changes, and the branch is up to date and mergeable.
 
-| Aspect | `full-stop` | `full-send` |
+| Aspect | `stage-pr` | `ship-pr` |
 | --- | --- | --- |
-| **Trigger** | `"full stop"` (even as closing emphasis) | `"full send"` (explicit request required) |
+| **Trigger** | `"stage PR"` or end-to-end delivery without merging | `"ship PR"` (explicit request required) |
 | **Testing permission** | Authorized to run direct proof methods (app, browser, simulators, visual checks) without asking first | Same |
 | **Branch push** | May commit, rebase, and `--force-with-lease` on the task branch | Same |
 | **Merging** | **Never merges.** Disables auto-merge / removes from merge queue if present, and hands off at the gate. | **Merges** via the repo's configured merge method and branch protection (never `--admin`). |
 | **Final output** | Handoff report: PR link, head SHA, verdict (`Ready to merge` / `Waiting for required approval` / `Blocked`), proof, reviewer outcome, risks. | Final report: PR link, merge commit, proof, and decisions made for the user. |
 
-**Harness requirements:** `full-stop` and `full-send` require an agent harness that can delegate `review-loop` to the selected reviewer (OpenAI GPT Astra at high reasoning effort by default, or an explicit model/effort override) and access your project's PR/GitHub tooling. Both ask the user only through the harness's interactive question tool when genuinely blocked (cannot prove the change, cannot satisfy the merge gate, destructive/external action required, ambiguous goal, or PR made obsolete); if no question tool is available or it returns no answer, the agent leaves the PR open and unmerged and starts its final reply with the question.
+**Harness requirements:** `stage-pr` and `ship-pr` require an agent harness that can delegate `review-loop` to the selected reviewer (OpenAI GPT Astra at high reasoning effort by default, or an explicit model/effort override) and access your project's PR/GitHub tooling. Both ask the user only through the harness's interactive question tool when genuinely blocked (cannot prove the change, cannot satisfy the merge gate, destructive/external action required, ambiguous goal, or PR made obsolete); if no question tool is available or it returns no answer, the agent leaves the PR open and unmerged and starts its final reply with the question.
 
 ---
 
-## 2. Supporting skills invoked by `full-stop` and `full-send`
+## 2. Supporting skills invoked by `stage-pr` and `ship-pr`
 
-You normally get these automatically when running `full-stop` or `full-send`, though you can also call any of them directly.
+You normally get these automatically when running `stage-pr` or `ship-pr`, though you can also call any of them directly.
 
 ### `implement`
 Source: [`skills/implement/SKILL.md`](../skills/implement/SKILL.md)
@@ -66,7 +66,7 @@ Runs a bounded single-reviewer findings loop (default: OpenAI GPT Astra at high 
 
 ### `file-pr`
 Source: [`skills/file-pr/SKILL.md`](../skills/file-pr/SKILL.md)  
-Dependencies: `babysit-pr`, `leaving-pr-comments`
+Dependencies: `babysit-pr`, `github-comments`
 
 Prepares and opens pull requests:
 
@@ -77,7 +77,7 @@ Prepares and opens pull requests:
 
 ### `babysit-pr`
 Source: [`skills/babysit-pr/SKILL.md`](../skills/babysit-pr/SKILL.md)  
-Dependency: `leaving-pr-comments`
+Dependency: `github-comments`
 
 Monitors CI checks, review comments, and base-branch drift without ad-hoc polling or `sleep` loops:
 
@@ -91,8 +91,8 @@ Monitors CI checks, review comments, and base-branch drift without ad-hoc pollin
   - Persists state in `~/.local/state/pr-wait/` so events arriving between restarts are not lost.
 - Verifies bot findings against source before changing code, declines scope-expanding suggestions with a written reason, and checks for `BEHIND`/`DIRTY` or overlapping base commits before calling a PR ready or merging.
 
-### `leaving-pr-comments`
-Source: [`skills/leaving-pr-comments/SKILL.md`](../skills/leaving-pr-comments/SKILL.md)
+### `github-comments`
+Source: [`skills/github-comments/SKILL.md`](../skills/github-comments/SKILL.md)
 
 Formats agent-authored GitHub comments left on the user's behalf (excluding PR descriptions, commit messages, and text the user explicitly asked to post verbatim without attribution):
 
@@ -115,7 +115,7 @@ Call these directly when you need backlog management, UI design/verification, mu
 ### Backlog: `capture-issue` and `pick-next-work`
 
 - **[`capture-issue`](../skills/capture-issue/SKILL.md):** Locates the project's canonical tracker/backlog, checks for duplicates first (reporting **Created**, **Updated**, **Already tracked**, or **Blocked**), writes a concise problem/outcome description without inventing an implementation plan, and verifies the saved record.
-- **[`pick-next-work`](../skills/pick-next-work/SKILL.md):** Reads the backlog, checks top candidates against current code and open PRs to avoid already-active or superseded items, and recommends one concrete slice with tradeoffs and acceptance scenarios. For an explicit choose-and-implement request, it proceeds as requested; it hands off to `full-stop` or `full-send` only when that workflow was explicitly requested (never inferring merge authority merely from selecting or implementing an item).
+- **[`pick-next-work`](../skills/pick-next-work/SKILL.md):** Reads the backlog, checks top candidates against current code and open PRs to avoid already-active or superseded items, and recommends one concrete slice with tradeoffs and acceptance scenarios. For an explicit choose-and-implement request, it proceeds as requested; it hands off to `stage-pr` or `ship-pr` only when that workflow was explicitly requested (never inferring merge authority merely from selecting or implementing an item).
 
 ### UI design & verification: `implement-ui` + `impeccable`
 
@@ -132,14 +132,14 @@ Use when designing, reviewing, implementing, or updating a user interface on any
 - **Web UI SDK:** For package-based web apps, integrates with `@ui-sdk/core` and the matching adapter (`@ui-sdk/react`, `@ui-sdk/vue`, `@ui-sdk/svelte`, `@ui-sdk/solid`, or `@ui-sdk/web`) and loads the SDK's version-matched skill and docs from `node_modules`. For plain HTML pages without a build step, follows the Web Components script and stylesheet setup instead of adding a package toolchain.
 - **Visual verification:** Runs the updated UI, exercises changed interactions, and attaches screenshots demonstrating the change (or reports the specific blocker if capture isn't possible).
 
-### Multi-provider review: `review-group`
-Source: [`skills/review-group/SKILL.md`](../skills/review-group/SKILL.md)
+### Multi-provider review: `review-panel`
+Source: [`skills/review-panel/SKILL.md`](../skills/review-panel/SKILL.md)
 
-`review-group` runs the [review loop](#review-loop) with GPT Astra and Gemini 4 Neon in parallel, both at high reasoning effort by default. You can override the reviewers or effort.
+`review-panel` runs the [review loop](#review-loop) with GPT Astra and Gemini 4 Neon in parallel, both at high reasoning effort by default. You can override the reviewers or effort.
 
-- The group uses the same scoped diff, finding ledger, UI checks, three-round default, and bounded extension as `review-loop`. Approval requires each required reviewer to approve the current behavior diff and all blockers and shoulds to be resolved.
-- The lead verifies findings as they arrive and applies fixes after the required reviews finish. The `Review group results` table records each reviewer's score out of 10 per round in the PR description or, for local work, in the final reply.
-- Installing `review-group` also installs `review-loop` and its Impeccable dependency.
+- The panel uses the same scoped diff, finding ledger, UI checks, three-round default, and bounded extension as `review-loop`. Approval requires each required reviewer to approve the current behavior diff and all blockers and shoulds to be resolved.
+- The lead verifies findings as they arrive and applies fixes after the required reviews finish. The `Review panel results` table records each reviewer's score out of 10 per round in the PR description or, for local work, in the final reply.
+- Installing `review-panel` also installs `review-loop` and its Impeccable dependency.
 
 ### Skill management: `manage-mstack-skills`
 Source: [`skills/manage-mstack-skills/SKILL.md`](../skills/manage-mstack-skills/SKILL.md)

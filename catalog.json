@@ -1,22 +1,18 @@
 {
   "babysit-pr": {
     "summary": "Follow pull request checks and reviews",
-    "requires": ["leaving-pr-comments"]
+    "requires": ["github-comments"]
   },
   "capture-issue": {
     "summary": "Capture a request or follow-up in the project backlog"
   },
   "file-pr": {
     "summary": "Prepare and open a pull request",
-    "requires": ["babysit-pr", "leaving-pr-comments"]
+    "requires": ["babysit-pr", "github-comments"]
   },
-  "full-send": {
-    "summary": "Take a change through review and merge the pull request",
-    "requires": ["babysit-pr", "file-pr", "implement", "review-loop"]
-  },
-  "full-stop": {
-    "summary": "Take a change through review and leave the pull request ready to merge",
-    "requires": ["full-send"]
+  "github-comments": {
+    "summary": "Format GitHub comments written on the user's behalf",
+    "replaces": ["leaving-pr-comments"]
   },
   "implement": {
     "summary": "Apply skill updates by default and delegate independent implementation work"
@@ -24,20 +20,28 @@
   "implement-ui": {
     "summary": "Design, review, and implement user interfaces on any platform"
   },
-  "leaving-pr-comments": {
-    "summary": "Format pull request comments written on the user's behalf"
-  },
   "manage-mstack-skills": {
     "summary": "Manage project skills and install or upgrade the mstack CLI"
   },
   "pick-next-work": {
     "summary": "Compare priorities and choose the next backlog item"
   },
-  "review-group": {
-    "summary": "Run a bounded review with Astra and Gemini Neon in parallel",
-    "requires": ["review-loop"]
-  },
   "review-loop": {
     "summary": "Review a change with Astra through a bounded findings loop"
+  },
+  "review-panel": {
+    "summary": "Run a bounded review with Astra and Gemini Neon in parallel",
+    "requires": ["review-loop"],
+    "replaces": ["review-group"]
+  },
+  "ship-pr": {
+    "summary": "Take a change through review and merge the pull request",
+    "requires": ["babysit-pr", "file-pr", "implement", "review-loop"],
+    "replaces": ["full-send"]
+  },
+  "stage-pr": {
+    "summary": "Take a change through review and leave the pull request ready to merge",
+    "requires": ["ship-pr"],
+    "replaces": ["full-stop"]
   }
 }

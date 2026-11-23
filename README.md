@@ -52,7 +52,7 @@ Preserve existing skill files if the installer reports a collision or local
 edits, and tell me what blocked setup.
 ```
 
-For a smaller install, ask your agent to install only the skills you want—for example, `capture-issue pick-next-work` for backlog management, `implement-ui` for UI work, or `full-stop` for the full review-to-PR pipeline. `mstack` automatically installs required dependencies.
+For a smaller install, ask your agent to install only the skills you want—for example, `capture-issue pick-next-work` for backlog management, `implement-ui` for UI work, or `stage-pr` for the full review-to-PR pipeline. `mstack` automatically installs required dependencies.
 
 <details>
 <summary>Or install from the terminal</summary>
@@ -67,7 +67,7 @@ mstack list
 # Or install a focused subset (dependencies are added automatically)
 mstack install capture-issue pick-next-work   # Backlog management
 mstack install implement-ui                   # UI design, implementation, and Impeccable
-mstack install full-stop                      # Full review-to-PR delivery pipeline
+mstack install stage-pr                       # Full review-to-PR delivery pipeline
 ```
 
 </details>
@@ -76,24 +76,24 @@ If your agent loads skills only at startup, open a new session after installing 
 
 ## Skill catalog
 
-Most users interact with `mstack` through **`full-stop`** and **`full-send`**. Those two entry points orchestrate the supporting implementation, review, PR, and monitoring skills automatically, though every skill can also be invoked on its own.
+Most users interact with `mstack` through **`stage-pr`** and **`ship-pr`**. Those two entry points orchestrate the supporting implementation, review, PR, and monitoring skills automatically, though every skill can also be invoked on its own.
 
 ### Primary delivery workflows
 
 | Skill | Summary | Dependencies |
 | --- | --- | --- |
-| [`full-stop`](skills/full-stop/SKILL.md) | Implement, prove, review, file, and babysit a PR, then hand off ready to merge without merging. | `full-send` |
-| [`full-send`](skills/full-send/SKILL.md) | Implement, prove, review, file, babysit, and merge a PR unattended once the merge gate passes. | `babysit-pr`, `file-pr`, `implement`, `review-loop` |
+| [`stage-pr`](skills/stage-pr/SKILL.md) | Implement, prove, review, file, and babysit a PR, then hand off ready to merge without merging. | `ship-pr` |
+| [`ship-pr`](skills/ship-pr/SKILL.md) | Implement, prove, review, file, babysit, and merge a PR unattended once the merge gate passes. | `babysit-pr`, `file-pr`, `implement`, `review-loop` |
 
-### Supporting skills (called by `full-stop` and `full-send`)
+### Supporting skills (called by `stage-pr` and `ship-pr`)
 
 | Skill | Summary | Dependencies |
 | --- | --- | --- |
 | [`implement`](skills/implement/SKILL.md) | Confirm implementation intent, apply mstack skill updates by default, and parallelize independent work. | — |
 | [`review-loop`](skills/review-loop/SKILL.md) | Run a bounded findings loop with Astra (including Impeccable audit/critique checks on UI changes). | `impeccable` |
-| [`file-pr`](skills/file-pr/SKILL.md) | Prepare and open a concise, problem-first pull request. | `babysit-pr`, `leaving-pr-comments` |
-| [`babysit-pr`](skills/babysit-pr/SKILL.md) | Monitor PR checks, reviews, and base-branch drift without writing a custom polling loop. | `leaving-pr-comments` |
-| [`leaving-pr-comments`](skills/leaving-pr-comments/SKILL.md) | Format agent-authored GitHub comments with explicit model/user attribution. | — |
+| [`file-pr`](skills/file-pr/SKILL.md) | Prepare and open a concise, problem-first pull request. | `babysit-pr`, `github-comments` |
+| [`babysit-pr`](skills/babysit-pr/SKILL.md) | Monitor PR checks, reviews, and base-branch drift without writing a custom polling loop. | `github-comments` |
+| [`github-comments`](skills/github-comments/SKILL.md) | Format agent-authored GitHub comments with explicit model/user attribution. | — |
 
 ### Additional workflows
 
@@ -103,10 +103,10 @@ Most users interact with `mstack` through **`full-stop`** and **`full-send`**. T
 | [`pick-next-work`](skills/pick-next-work/SKILL.md) | Inspect backlog candidates and recommend the next slice of work. | — |
 | [`implement-ui`](skills/implement-ui/SKILL.md) | Design, review, implement, and visually verify interfaces across platforms (includes Birman's UI/UX principles and Vercel UI SDK guidance). | `impeccable` |
 | [`impeccable`](https://github.com/pbakaus/impeccable) *(external)* | Critique UX, audit accessibility/responsiveness, and refine visual polish. Installed from latest stable upstream release (`skill-v*`). | — |
-| [`review-group`](skills/review-group/SKILL.md) | Run a bounded, scored review with GPT Astra and Gemini 4 Neon at high effort. | `review-loop` |
+| [`review-panel`](skills/review-panel/SKILL.md) | Run a bounded, scored review with GPT Astra and Gemini 4 Neon at high effort. | `review-loop` |
 | [`manage-mstack-skills`](skills/manage-mstack-skills/SKILL.md) | Guide an agent to install, update, or remove mstack skills and upgrade the CLI. | — |
 
-> **Note on dependencies:** `mstack install` resolves transitive dependencies automatically. Installing `full-stop`, `full-send`, `review-group`, `review-loop`, `implement-ui`, or `--all` installs `impeccable` from its latest stable upstream release. You can also install `impeccable` standalone with `mstack install impeccable`.
+> **Note on dependencies:** `mstack install` resolves transitive dependencies automatically. Installing `stage-pr`, `ship-pr`, `review-panel`, `review-loop`, `implement-ui`, or `--all` installs `impeccable` from its latest stable upstream release. You can also install `impeccable` standalone with `mstack install impeccable`.
 
 ## Managing skills & updates
 
@@ -117,8 +117,8 @@ Most users interact with `mstack` through **`full-stop`** and **`full-send`**. T
 | `mstack list` | Show catalog skills (bundled and external) and their local status. |
 | `mstack install <skill>...` | Install named skills and all transitive dependencies. |
 | `mstack install --all` | Install all bundled skills and their required dependencies. |
-| `mstack update --check [<skill>...]` | Dry-run check for skill updates, missing dependencies, and pending language attribute changes. |
-| `mstack update [<skill>...]` | Update managed skills (all still in catalog, or only named skills + their dependencies). |
+| `mstack update --check [<skill>...]` | Dry-run check for skill updates, renames, missing dependencies, and pending language attribute changes. |
+| `mstack update [<skill>...]` | Update managed skills and migrate renamed skills (all still in catalog, or only named skills + their dependencies). |
 | `mstack remove <skill>...` | Remove named managed skills and their lock entries (works offline). |
 | `mstack --version` | Print the installed CLI version. |
 
@@ -126,7 +126,7 @@ Full flag semantics, lockfile format, safety guarantees, and recovery steps are 
 
 ### Automatic updates during implementation
 
-When a project has `.agents/mstack.lock.json`, the `implement` skill (also invoked by `full-send` and `full-stop`) runs `mstack update --check` once per project per task. By default it applies pending skill, dependency, and language attribute changes before editing code.
+When a project has `.agents/mstack.lock.json`, the `implement` skill (also invoked by `ship-pr` and `stage-pr`) runs `mstack update --check` once per project per task. By default it applies pending skill, dependency, and language attribute changes before editing code.
 
 To keep the check visible without auto-applying, tell your agent or add this line to your project's `AGENTS.md`:
 

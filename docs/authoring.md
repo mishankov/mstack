@@ -58,7 +58,7 @@ Every bundled skill lives in `skills/<name>/`:
 - `name` must exactly match the skill folder name.
 - `description` must be 1–1024 characters and describe **when** the skill activates. Quote values that YAML 1.1 parsers could misread as booleans (`yes`, `no`, `on`, `off`) or sexagesimal numbers (`12:30`).
 - Keep skill bodies portable: describe procedures and concrete handoffs without hardcoding project-specific build commands, trackers, or environments.
-- Keep all local links relative. Links inside `SKILL.md` may point to files within the same skill folder (e.g., `references/guide.md`, `scripts/helper`) or to another skill (e.g., `../leaving-pr-comments/SKILL.md`), **provided that skill is declared in `requires`** (directly or transitively).
+- Keep all local links relative. Links inside `SKILL.md` may point to files within the same skill folder (e.g., `references/guide.md`, `scripts/helper`) or to another skill (e.g., `../github-comments/SKILL.md`), **provided that skill is declared in `requires`** (directly or transitively).
 
 ### Registering in `catalog.json`
 
@@ -68,14 +68,16 @@ Add an entry to [`catalog.json`](../catalog.json):
 {
   "my-skill": {
     "summary": "Short one-line description shown in mstack list",
-    "requires": ["other-skill"]
+    "requires": ["other-skill"],
+    "replaces": ["old-skill-name"]
   }
 }
 ```
 
-- Keys must be lowercase (`summary`, `requires`).
+- Keys must be lowercase (`summary`, `requires`, `replaces`).
 - `summary` is required and non-empty.
 - `requires` is optional; when present, it must be an array of valid skill names defined in `catalog.json` or `external-skills.json`.
+- `replaces` is optional; when present, it must be an array of retired skill names that this skill replaces so `mstack update` migrates existing projects automatically. Replaced names must be valid skill names, cannot match an active skill, and can be claimed by only one skill.
 - Do not put `source` in `catalog.json`—external skills belong in `external-skills.json`.
 
 ## External skills

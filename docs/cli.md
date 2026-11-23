@@ -63,11 +63,11 @@ Installs one or more skills into `.agents/skills/` along with their complete tra
 
 ### `mstack update [--check] [<skill>...]`
 
-Updates managed skills and installs any newly added dependencies.
+Updates managed skills, migrates renamed skills, and installs any newly added dependencies.
 
-- `mstack update` updates every managed skill that still exists in the upstream catalog. If a managed skill was removed upstream, `mstack` reports `Retired upstream (<n>): ...`, skips it, and continues updating the remaining skills.
-- `mstack update <skill>...` updates only the named managed skills and their transitive dependencies. Naming an unmanaged skill fails and suggests `mstack install <skill>`. Naming a retired skill fails because it is unavailable upstream.
-- `mstack update --check [<skill>...]` is read-only and reports `Updates available`, `Dependencies to install`, `Already current`, pending skill attribute changes, and any local conflicts.
+- `mstack update` updates every managed skill that still exists in the upstream catalog. If a managed skill was renamed upstream (declared via `replaces` in the catalog), `mstack` atomically installs the replacement (and its dependencies), removes the old folder and lock entry, and updates `.agents/.gitattributes`—preserving local edits if the old folder was modified or an unmanaged folder exists at the new name. If a managed skill was retired without a replacement, `mstack` reports `Retired upstream (<n>): ...`, skips it, and continues updating the remaining skills.
+- `mstack update <skill>...` updates only the named managed skills and their transitive dependencies (including migrating any renamed skills among them). Naming an unmanaged skill fails and suggests `mstack install <skill>`. Naming a retired skill without a replacement fails because it is unavailable upstream.
+- `mstack update --check [<skill>...]` is read-only and reports `Renames available`, `Updates available`, `Dependencies to install`, `Already current`, pending skill attribute changes, and any local conflicts.
 - If a previously removed skill is still required by another installed skill, `mstack update` reinstalls it as a dependency.
 
 ### `mstack remove <skill>...`

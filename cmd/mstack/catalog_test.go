@@ -37,15 +37,15 @@ func TestSkillCatalog(t *testing.T) {
 	if err := validateCatalogJSON(root); err != nil {
 		t.Fatal(err)
 	}
-	skills, err := readCatalog(root)
+	c, err := readCatalog(root)
 	if err != nil {
 		t.Fatal(err)
 	}
-	dir, err := filepath.EvalSymlinks(filepath.Join(root, "skills"))
+	dir, err := filepath.EvalSymlinks(c.dir)
 	if err != nil {
 		t.Fatal(err)
 	}
-	c := catalog{dir: dir, skills: skills}
+	c.dir = dir
 	t.Run("Implement UI dependencies", func(t *testing.T) {
 		selected, err := c.selectSkills([]string{"implement-ui"})
 		if err != nil {
@@ -55,8 +55,8 @@ func TestSkillCatalog(t *testing.T) {
 			t.Fatal("implement-ui requires Impeccable")
 		}
 	})
-	for _, name := range sortedKeys(skills) {
-		if skills[name].Source != nil {
+	for _, name := range sortedKeys(c.skills) {
+		if c.skills[name].Source != nil {
 			continue
 		}
 		t.Run(name, func(t *testing.T) {
@@ -108,6 +108,56 @@ func TestSkillFrontmatter(t *testing.T) {
 	}
 }
 
+func TestCatalogReplacesValidation(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		manifest  string
+		wantError string
+	}{
+		{
+			name:      "invalid name",
+			manifest:  `{"alpha":{"summary":"Alpha","replaces":["Bad_Name"]}}`,
+			wantError: "replaces invalid skill name",
+		},
+		{
+			name:      "active skill",
+			manifest:  `{"alpha":{"summary":"Alpha","replaces":["beta"]},"beta":{"summary":"Beta"}}`,
+			wantError: "cannot replace active skill",
+		},
+		{
+			name:      "duplicate on same skill",
+			manifest:  `{"alpha":{"summary":"Alpha","replaces":["old","old"]}}`,
+			wantError: "more than once",
+		},
+		{
+			name:      "claimed by two skills",
+			manifest:  `{"alpha":{"summary":"Alpha","replaces":["old"]},"beta":{"summary":"Beta","replaces":["old"]}}`,
+			wantError: "claimed by both",
+		},
+		{
+			name:     "valid",
+			manifest: `{"alpha":{"summary":"Alpha","replaces":["old-one","old-two"]}}`,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			writeFile(t, filepath.Join(dir, "catalog.json"), []byte(tc.manifest))
+			writeFile(t, filepath.Join(dir, "skills", "alpha", "SKILL.md"), []byte("---\nname: alpha\ndescription: Alpha.\n---\n"))
+			if strings.Contains(tc.manifest, `"beta"`) {
+				writeFile(t, filepath.Join(dir, "skills", "beta", "SKILL.md"), []byte("---\nname: beta\ndescription: Beta.\n---\n"))
+			}
+			_, err := readCatalog(dir)
+			if tc.wantError == "" {
+				if err != nil {
+					t.Fatal(err)
+				}
+			} else if err == nil || !strings.Contains(err.Error(), tc.wantError) {
+				t.Fatalf("got %v, want %q", err, tc.wantError)
+			}
+		})
+	}
+}
+
 func validateCatalogJSON(root string) error {
 	data, err := os.ReadFile(filepath.Join(root, "catalog.json"))
 	if err != nil {
@@ -128,9 +178,13 @@ func validateCatalogJSON(root string) error {
 		if requires, ok := entry["requires"]; ok && !bytes.HasPrefix(bytes.TrimSpace(requires), []byte("[")) {
 			return fmt.Errorf("%q: requires must be an array", name)
 		}
+		if replaces, ok := entry["replaces"]; ok && !bytes.HasPrefix(bytes.TrimSpace(replaces), []byte("[")) {
+			return fmt.Errorf("%q: replaces must be an array", name)
+		}
 		for key := range entry {
 			if key != "summary" && strings.EqualFold(key, "summary") ||
-				key != "requires" && strings.EqualFold(key, "requires") {
+				key != "requires" && strings.EqualFold(key, "requires") ||
+				key != "replaces" && strings.EqualFold(key, "replaces") {
 				return fmt.Errorf("%q: use the lowercase spelling of %q in catalog.json", name, key)
 			}
 		}

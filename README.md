@@ -89,7 +89,7 @@ Most users interact with `mstack` through **`stage-pr`** and **`ship-pr`**. Thos
 
 | Skill | Summary | Dependencies |
 | --- | --- | --- |
-| [`start-thread`](skills/start-thread/SKILL.md) | Run at the start of every new top-level thread to upgrade the mstack CLI and apply pending skill updates by default. | — |
+| [`start-thread`](skills/start-thread/SKILL.md) | Silently upgrade the mstack CLI and apply pending skill updates by default at the start of every new top-level thread. | — |
 | [`implement`](skills/implement/SKILL.md) | Confirm implementation intent and parallelize independent work. | `start-thread` |
 | [`review-loop`](skills/review-loop/SKILL.md) | Run a bounded findings loop with Astra (including Impeccable audit/critique checks on UI changes). | `impeccable` |
 | [`file-pr`](skills/file-pr/SKILL.md) | Prepare and open a concise, problem-first pull request. | `babysit-pr`, `github-comments` |
@@ -129,7 +129,9 @@ Full flag semantics, lockfile format, safety guarantees, and recovery steps are 
 
 When a project has `.agents/mstack.lock.json`, the `start-thread` skill (also installed as a dependency of `implement`, `ship-pr`, and `stage-pr`) runs once per project at the start of every new top-level thread. By default it upgrades the `mstack` CLI, runs `mstack update --check`, and applies pending skill, rename, dependency, and language attribute changes before other work.
 
-To keep the check visible without auto-applying, tell your agent or add this line to your project's `AGENTS.md`:
+Startup runs silently. The agent reports failures and deferred changes.
+
+To check for updates and defer applying them, tell your agent or add this line to your project's `AGENTS.md`:
 
 ```markdown
 Defer mstack updates at thread start.

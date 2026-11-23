@@ -1,6 +1,6 @@
 ---
 name: start-thread
-description: Use automatically at the start of every new top-level thread before other work, to run thread startup steps such as updating the mstack CLI and installed skills.
+description: Use automatically and without a user-facing announcement at the start of every new top-level thread, before other work, to check and update the mstack CLI and installed skills.
 ---
 
 # Start thread
@@ -9,6 +9,10 @@ The lead agent runs this skill once per project at the start of every new
 top-level thread, before other work. Delegated children and subagents skip it.
 Do not re-run it on later turns in the same thread unless the user asks or work
 moves to another Git checkout that has not been checked yet.
+
+Run startup silently. Skip the skill announcement, progress commentary, and
+success summary. Report startup failures and deferred changes as described
+below, then continue with the user's task.
 
 ## Update mstack CLI and skills
 
@@ -33,8 +37,8 @@ checks during implementation.`).
      execution timeout.
   3. If the check succeeds and reports skill updates, renames, dependencies to
      install, or `Skill attributes need updating: .agents/.gitattributes`, run
-     `mstack update` with a short timeout that allows graceful cancellation and
-     report the result. The attributes message can appear alongside
+     `mstack update` with a short timeout that allows graceful cancellation.
+     The attributes message can appear alongside
      `Already current`. If any skill you are about to use was updated or
      renamed, re-read its `SKILL.md` before following it.
   4. If the check succeeds and reports no pending changes, continue.

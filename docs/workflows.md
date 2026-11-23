@@ -42,7 +42,7 @@ You normally get these automatically when running `stage-pr` or `ship-pr`, thoug
 ### `start-thread`
 Source: [`skills/start-thread/SKILL.md`](../skills/start-thread/SKILL.md)
 
-Runs once per project at the start of every new top-level thread (lead agent only; delegated children and subagents skip it), before other work:
+The lead agent runs this skill silently before other work, once per project at the start of every new top-level thread. Delegated children and subagents skip it.
 
 - **Update mstack CLI and skills.** When `.agents/mstack.lock.json` exists, upgrades the `mstack` CLI via `go install github.com/mishankov/mstack/cmd/mstack@latest` (falling back to any already-installed `mstack` binary if Go or `go install` fails), runs `mstack update --check`, and by default runs `mstack update` when the check reports skill updates, renames, missing dependencies, or pending language attribute changes. Re-reads any updated or renamed skill before following it.
 - To **defer** applying updates while still reporting pending skill changes, say so in your prompt or add `Defer mstack updates at thread start.` to your project's `AGENTS.md`.

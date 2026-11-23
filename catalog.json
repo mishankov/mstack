@@ -46,6 +46,6 @@
     "replaces": ["full-stop"]
   },
   "start-thread": {
-    "summary": "Run thread-start checks and update the mstack CLI and installed skills"
+    "summary": "Run thread-start checks and update the mstack CLI and installed skills silently"
   }
 }

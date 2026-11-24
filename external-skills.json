@@ -1,4 +1,14 @@
 {
+  "diagnosing-bugs": {
+    "summary": "Reproduce and diagnose hard bugs and performance regressions",
+    "required_by": ["implement"],
+    "source": {
+      "repository": "https://github.com/mattpocock/skills.git",
+      "tag_prefix": "v",
+      "path": "skills/engineering/diagnosing-bugs",
+      "include": ["LICENSE"]
+    }
+  },
   "impeccable": {
     "summary": "Critique, audit, and refine user interfaces with Impeccable",
     "required_by": ["implement-ui", "review-loop"],

@@ -90,7 +90,7 @@ Most users interact with `mstack` through **`stage-pr`** and **`ship-pr`**. Thos
 | Skill | Summary | Dependencies |
 | --- | --- | --- |
 | [`start-thread`](skills/start-thread/SKILL.md) | Silently upgrade the mstack CLI and apply pending skill updates by default at the start of every new top-level thread. | — |
-| [`implement`](skills/implement/SKILL.md) | Confirm implementation intent and parallelize independent work. | `start-thread` |
+| [`implement`](skills/implement/SKILL.md) | Confirm implementation intent, diagnose bugs when needed, and parallelize independent work. | `start-thread`, `diagnosing-bugs` |
 | [`review-loop`](skills/review-loop/SKILL.md) | Run a bounded findings loop with Astra (including Impeccable audit/critique checks on UI changes). | `impeccable` |
 | [`file-pr`](skills/file-pr/SKILL.md) | Prepare and open a concise, problem-first pull request. | `babysit-pr`, `github-comments` |
 | [`babysit-pr`](skills/babysit-pr/SKILL.md) | Monitor PR checks, reviews, and base-branch drift without writing a custom polling loop. | `github-comments` |
@@ -101,6 +101,8 @@ Most users interact with `mstack` through **`stage-pr`** and **`ship-pr`**. Thos
 | Skill | Summary | Dependencies |
 | --- | --- | --- |
 | [`capture-issue`](skills/capture-issue/SKILL.md) | Record a request, bug, or deferred follow-up in the project backlog. | — |
+| [`discover`](skills/discover/SKILL.md) | Discuss an idea and agree on scope and examples of success before implementation. | — |
+| [`diagnosing-bugs`](https://github.com/mattpocock/skills/tree/main/skills/engineering/diagnosing-bugs) *(external)* | Build a reproduction, test explanations, and verify the fix against the original symptom. | — |
 | [`pick-next-work`](skills/pick-next-work/SKILL.md) | Inspect backlog candidates and recommend the next slice of work. | — |
 | [`implement-ui`](skills/implement-ui/SKILL.md) | Design, review, implement, and visually verify interfaces across platforms (includes Birman's UI/UX principles and Vercel UI SDK guidance). | `impeccable` |
 | [`impeccable`](https://github.com/pbakaus/impeccable) *(external)* | Critique UX, audit accessibility/responsiveness, and refine visual polish. Installed from latest stable upstream release (`skill-v*`). | — |

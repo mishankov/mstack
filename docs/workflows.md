@@ -51,12 +51,14 @@ The lead agent runs this skill silently before other work, once per project at t
 
 ### `implement`
 Source: [`skills/implement/SKILL.md`](../skills/implement/SKILL.md)  
-Dependency: `start-thread`
+Dependencies: `start-thread`, `diagnosing-bugs`
 
 Handles implementation kickoff and parallelization:
 
 1. **Confirm implementation intent:** Does not edit files or delegate during feasibility questions or design discussions; waits for a clear request to implement, then proceeds without re-confirming.
 2. **Parallelize independent work:** Uses subagents where changes decompose cleanly.
+
+Installing `implement`, `stage-pr`, `ship-pr`, or `--all` also installs Matt Pocock's [diagnosing-bugs skill](https://github.com/mattpocock/skills/tree/main/skills/engineering/diagnosing-bugs). Implementation uses it when a bug or performance regression needs investigation.
 
 ### `review-loop`
 Source: [`skills/review-loop/SKILL.md`](../skills/review-loop/SKILL.md)  
@@ -65,7 +67,7 @@ Dependency: `impeccable`
 Runs a bounded single-reviewer findings loop (default: OpenAI GPT Astra at high reasoning effort):
 
 - Scopes the review strictly to the current change against its Git merge-base and runs covering checks before requesting review.
-- Round 1 performs a full review; subsequent rounds check only changed code and open findings.
+- Every reviewer checks the requested behavior and the applicable repository rules. Round 1 covers the full change. Later rounds apply both checks to fixes and open findings.
 - For user-facing UI changes, automatically includes Impeccable's `audit` checks (accessibility, keyboard flow, responsive layout, theming) and `critique` rubric for new or substantially changed screens.
 - Tracks findings in a ledger (`blocker` / `should` / `nit`), prefers the smallest fix (or deleting/narrowing code), and pushes back on scope creep.
 - Defaults to **3 rounds** (extending to **5** only for security, permissions, auth, data loss, or state/concurrency issues, or when requested). Budget exhaustion is never treated as approval—disputed items are presented to the user.
@@ -117,7 +119,11 @@ Actual comment starts here.
 
 ## 3. Standalone & specialized workflows
 
-Call these directly when you need backlog management, UI design/verification, multi-provider review consensus, or CLI/skill maintenance.
+Call these directly for discovery, backlog management, UI design and verification, multi-provider review, or CLI and skill maintenance.
+
+### Discovery with `discover`
+
+Ask “let’s scope this” or “let’s think this through” to explore a proposed change. The agent checks the project for facts, brings you decisions that affect the outcome, and summarizes the agreed scope, examples of success, and open questions in the conversation. Ask to implement when you are ready to act on that scope. The approach draws on Matt Pocock’s [grilling](https://github.com/mattpocock/skills/tree/main/skills/productivity/grilling) and [domain modeling](https://github.com/mattpocock/skills/tree/main/skills/engineering/domain-modeling) skills. See the [discover workflow](../skills/discover/SKILL.md).
 
 ### Backlog: `capture-issue` and `pick-next-work`
 

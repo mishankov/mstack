@@ -6,6 +6,9 @@
   "capture-issue": {
     "summary": "Capture a request or follow-up in the project backlog"
   },
+  "discover": {
+    "summary": "Discuss a proposed change and agree on its scope and examples of success"
+  },
   "file-pr": {
     "summary": "Prepare and open a pull request",
     "requires": ["babysit-pr", "github-comments"]

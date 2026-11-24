@@ -15,4 +15,7 @@ When the request is clear, proceed without asking for confirmation again.
 
 ## Implement the change
 
+Use the installed `diagnosing-bugs` skill when a bug or performance
+regression needs diagnosis.
+
 Use subagents to parallelize independent work.

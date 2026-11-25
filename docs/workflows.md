@@ -33,6 +33,8 @@ Both workflows run the same end-to-end pipeline:
 
 **Harness requirements:** `stage-pr` and `ship-pr` require an agent harness that can delegate `review-loop` to the selected reviewer (OpenAI GPT Astra at high reasoning effort by default, or an explicit model/effort override) and access your project's PR/GitHub tooling. Both ask the user only through the harness's interactive question tool when genuinely blocked (cannot prove the change, cannot satisfy the merge gate, destructive/external action required, ambiguous goal, or PR made obsolete); if no question tool is available or it returns no answer, the agent leaves the PR open and unmerged and starts its final reply with the question.
 
+**Orchestrated runs & structured handoffs:** When an orchestrator or prompt requests a structured output schema, `stage-pr`, `ship-pr`, `discover`, and `pick-next-work` submit the final handoff matching that schema through the mechanism it specifies (for example, `t3_submit_output` in T3 Code or an `outputSchema` contract) before ending the turn alongside their concise reply—preserving exact factual fields (verdict, PR URL, head SHA, merge commit or artifact revision when applicable, summary, and any blocking questions or open decisions) and using `null` or empty values rather than fabricating missing fields. When genuinely blocked on a user decision, they prefer the harness's structured interactive question tool so a user or orchestrator can answer via pending-request tooling before falling back to a leading question in the final reply.
+
 ---
 
 ## 2. Supporting skills invoked by `stage-pr` and `ship-pr`
